@@ -1,0 +1,17 @@
+_BASE_: "Base-CFPN.yaml"
+MODEL:
+  FPN:
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    OUT_CHANNELS: 128
+  RECONSTRUCT_HEADS:
+    NAME: "SPHead"
+    IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
+    IN_CHANNELS: 128
+  DEVICE: 'cpu'
+SOLVER:
+  BASE_LR: 0.00000002
+  MAX_ITER: 30
+VIS_PERIOD: 1
+INPUT:
+  FORMAT: "BGR"
+

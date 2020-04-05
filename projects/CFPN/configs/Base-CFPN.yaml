@@ -1,0 +1,25 @@
+MODEL:
+  META_ARCHITECTURE: "CFPN"
+  BACKBONE:
+    NAME: "build_resnet_fpn_backbone"
+  RESNETS:
+    OUT_FEATURES: ["res2", "res3", "res4", "res5"]
+    DEPTH: 50
+  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  FPN:
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    OUT_CHANNELS: 128
+DATASETS:
+  TRAIN: ("voc_2012_train",)
+  TEST: ("voc_2012_val",)
+SOLVER:
+  IMS_PER_BATCH: 2
+  BASE_LR: 0.002
+  STEPS: (60000, 80000)
+  MAX_ITER: 90000
+INPUT:
+   MIN_SIZE_TRAIN: (512,)
+   MAX_SIZE_TRAIN: 512
+   MIN_SIZE_TRAIN_SAMPLING: 'choice'
+VERSION: 2
+
