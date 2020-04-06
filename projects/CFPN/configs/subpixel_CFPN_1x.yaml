@@ -7,10 +7,8 @@ MODEL:
     NAME: "SPHead"
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
     IN_CHANNELS: 128
-  DEVICE: 'cpu'
 SOLVER:
-  BASE_LR: 0.00000002
-  MAX_ITER: 30
+  BASE_LR: 0.0000002
 VIS_PERIOD: 1
 INPUT:
   FORMAT: "BGR"
