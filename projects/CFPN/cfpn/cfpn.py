@@ -70,27 +70,24 @@ class CFPN(nn.Module):
             if storage.iter % self.vis_period == 0:
                  self.visualize_training(reconstructed_images, images)
 
-
         return reconstruction_losses
 
-    def inference(self, batched_inputs, detected_instances=None, do_postprocess=True):
+    def inference(self, batched_inputs):
         """
         Run inference on the given inputs.
 
         Args:
             batched_inputs (list[dict]): same as in :meth:`forward`
         Returns:
-            ImageList: batch size image list of reconstructed images
-            dict[str->Tensor]:
-            mapping from a named loss to a tensor storing the loss.
+            image_tensor: n,c,h,w This is a 0-255 byte tensor
         """
         assert not self.training
 
         images = self.preprocess_image(batched_inputs)
         features = self.backbone(images.tensor.float())
 
-        results = self.reconstruct_heads(images, features)
-        return results
+        image_tensor, loss_dict = self.reconstruct_heads(images, features)
+        return image_tensor.byte()
 
     def visualize_training(self, reconstructed_images, images):
         storage = get_event_storage()
