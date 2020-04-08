@@ -3,7 +3,8 @@ import logging
 import numpy as np
 import torch
 from torch import nn
-
+import torch.nn.functional as F
+import cv2
 from detectron2.structures import ImageList
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.logger import log_first_n
@@ -79,34 +80,41 @@ class CFPN(nn.Module):
         Args:
             batched_inputs (list[dict]): same as in :meth:`forward`
         Returns:
-            image_tensor: n,c,h,w This is a 0-255 byte tensor
+            Dict[str->tensor] mapping output image names to the tensor in n,c,h,w format
         """
         assert not self.training
 
         images = self.preprocess_image(batched_inputs)
         features = self.backbone(images.tensor.float())
 
-        image_tensor, loss_dict = self.reconstruct_heads(images, features)
-        return image_tensor.byte()
+        reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
+        return reconstructed_images
 
     def visualize_training(self, reconstructed_images, images):
         storage = get_event_storage()
         orig_img = images.tensor[0].detach().cpu().numpy()
-        recon_img = reconstructed_images[0].detach().cpu().numpy()
-        assert orig_img.shape[0] == 3, "Images should have 3 channels."
-        assert recon_img.shape[0] == 3, "Images should have 3 channels."
         if self.input_format == "BGR":
             orig_img = orig_img[::-1, :, :]
-            recon_img = recon_img[::-1, :, :]
+        for key in reconstructed_images:
+            print("vist training key ", key)
 
-        orig_img = orig_img.transpose(1, 2, 0).astype("uint8")
-        recon_img = recon_img.transpose(1, 2, 0).astype("uint8")
-        vis_img = np.concatenate((orig_img, recon_img), axis=1)
-        vis_img = vis_img.transpose(2, 0, 1)
-        vis_name = "Left: GT image;  Right: reconstructed image"
-        storage.put_image(vis_name, vis_img) #takes in c,h,w images
+            recon_img = reconstructed_images[key][0].detach().cpu().numpy()
+            assert orig_img.shape[0] == 3, "Images should have 3 channels."
+            assert recon_img.shape[0] == 3, "Images should have 3 channels."
+            if self.input_format == "BGR":
+                recon_img = recon_img[::-1, :, :]
+            _, height, width = recon_img.shape
+
+
+            t_orig_img = orig_img.transpose(1, 2, 0).astype("uint8")
+            ds_orig_img = cv2.resize(t_orig_img, dsize=(height, width), interpolation=cv2.INTER_NEAREST)
+            recon_img = recon_img.transpose(1, 2, 0).astype("uint8")
+            # print(ds_orig_img.shape, recon_img.shape)
+            vis_img = np.concatenate((ds_orig_img, recon_img), axis=1)
+            vis_img = vis_img.transpose(2, 0, 1)
+            vis_name = "{} ;Left: GT image;  Right: reconstructed image".format(key)
+            storage.put_image(vis_name, vis_img) #takes in c,h,w images
         return
-
 
     def preprocess_image(self, batched_inputs, norm=True):
         """

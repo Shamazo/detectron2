@@ -5,10 +5,19 @@ import detectron2.data.transforms as T
 from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
 class CompressionEvaluator(DatasetEvaluator):
-    def __init__(self, dataset_name, output_dir):
+    def __init__(self, dataset_name, output_dir, eval_img="img_2"):
+        """
+        Args:
+            dataset_name: must be 'kodak_test' for now
+            output_dir:
+            eval_img: the key in the output which contains the image we are evaluating
+                Currently hard coding to img_2 which is the largest, but in the future
+                we could also compare the lower resolution reproductions
+        """
         assert dataset_name=='kodak_test', "Can only evaluate compression on kodak_test"
         self.dataset_name = dataset_name
         self._output_dir = output_dir
+        self.eval_img = eval_img
         self.transform = T.ResizeShortestEdge(
             [512, 512], 512
         )
@@ -32,9 +41,9 @@ class CompressionEvaluator(DatasetEvaluator):
         orig_image = inputs[0]['image'].permute(1, 2, 0)
         orig_image = self.transform.get_transform(orig_image).apply_image(orig_image.numpy())
         orig_image = torch.tensor(orig_image).permute(2, 0, 1)
-        orig_image = torch.unsqueeze(orig_image, dim=0).float().to(outputs.get_device())
+        orig_image = torch.unsqueeze(orig_image, dim=0).float().to(outputs[self.eval_img].get_device())
 
-        reconstruct_image = outputs.float()
+        reconstruct_image = outputs[self.eval_img].float()
         reconstruct_image = reconstruct_image[:, :, 0:orig_image.shape[2], 0:orig_image.shape[3]]
         assert orig_image.shape[1] == 3, "original image must have 3 channels"
         assert reconstruct_image.shape[1] == 3, "reconstructed image must have 3 channels"

@@ -24,18 +24,21 @@ def add_cfpn_config(cfg):
     _C.MODEL.RECONSTRUCT_HEADS.NAME = "SPHead"
     _C.MODEL.RECONSTRUCT_HEADS.IN_FEATURES = ["p2", "p3", "p4", "p5", "p6"]
     _C.MODEL.RECONSTRUCT_HEADS.IN_CHANNELS = 256
+    _C.MODEL.RECONSTRUCT_HEADS.OUTPUT_IMAGES = ['img_2', 'img_3', 'img_4', 'img_5', 'img_6']
+    _C.TEST.TEST_IMAGES = ["img_2"]
 
 
 class Trainer(DefaultTrainer):
     @classmethod
     def build_evaluator(cls, cfg: CfgNode, dataset_name):
         output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        eval_img = cfg.TEST.TEST_IMAGES[0]
         if dataset_name != 'kodak_test':
             evaluators = [COCOEvaluator(dataset_name, cfg, True, output_folder)]
         else:
             evaluators = []
         if cfg.MODEL.RECONSTRUCT_HEADS_ON and dataset_name == 'kodak_test':
-            evaluators.append(CompressionEvaluator(dataset_name, output_folder))
+            evaluators.append(CompressionEvaluator(dataset_name, output_folder, eval_img=eval_img))
         return DatasetEvaluators(evaluators)
 
 
@@ -44,13 +47,12 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('./configs/subpixel_CFPN_1x.yaml')
+    cfg.merge_from_file('./configs/multilevel_subpixel_CFPN_1x.yaml')
     # cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()
     cfg.freeze()
     default_setup(cfg, args)
-    # Setup logger for "densepose" module
     setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="cfpn")
     return cfg
 
