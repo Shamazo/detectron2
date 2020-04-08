@@ -96,8 +96,6 @@ class CFPN(nn.Module):
         if self.input_format == "BGR":
             orig_img = orig_img[::-1, :, :]
         for key in reconstructed_images:
-            print("vist training key ", key)
-
             recon_img = reconstructed_images[key][0].detach().cpu().numpy()
             assert orig_img.shape[0] == 3, "Images should have 3 channels."
             assert recon_img.shape[0] == 3, "Images should have 3 channels."

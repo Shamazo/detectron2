@@ -174,29 +174,29 @@ class MLSPHead(ReconstructHeads):
         output_convs = []
         stages = []
         for idx, key in enumerate(self.in_features):
-            output_conv = Conv2d(
-                3,
-                3,
-                kernel_size=3,
-                stride=1,
-                padding=1
-            )
+            # output_conv = Conv2d(
+            #     3,
+            #     3,
+            #     kernel_size=3,
+            #     stride=1,
+            #     padding=1
+            # )
             reconstruct_conv = SubPixelReconstruct(self.in_channels)
 
             # weight_init.c2_xavier_fill(reconstruct_conv)
             # weight_init.c2_xavier_fill(output_conv)
 
             reconstruct_convs.append(reconstruct_conv)
-            output_convs.append(output_conv)
+            # output_convs.append(output_conv)
             stage = int(key[1])
             stages.append(stage)
             self.add_module("MLSP_recon{}".format(stage), reconstruct_conv)
-            self.add_module("MLSP_output{}".format(stage), output_conv)
+            # self.add_module("MLSP_output{}".format(stage), output_conv)
         # Place convs into top-down order (from low to high resolution)
         # to make the top-down computation in forward clearer.
         self.stages = stages[::-1]
         self.reconstruct_convs = reconstruct_convs[::-1]
-        self.output_convs = output_convs[::-1]
+        # self.output_convs = output_convs[::-1]
 
     def forward(
         self,
@@ -225,18 +225,17 @@ class MLSPHead(ReconstructHeads):
         # loss = self.loss(x * mask, images.tensor.float())
 
         prev_features = self.reconstruct_convs[0](x[0])
-        results["img_{}".format(self.stages[0])] = self.clip.apply(self.output_convs[0](prev_features))
+        results["img_{}".format(self.stages[0])] = self.clip.apply(prev_features)
 
-        for features, reconstruct_conv, output_conv, stage in zip(
-                x[1:], self.reconstruct_convs[1:], self.output_convs[1:],
-                self.stages[1:]
+        for features, reconstruct_conv, stage in zip(
+                x[1:], self.reconstruct_convs[1:], self.stages[1:]
         ):
             top_down_features = F.interpolate(prev_features, scale_factor=2, mode="nearest")
             lateral_features = reconstruct_conv(features)
             prev_features = lateral_features + top_down_features
             if self._fuse_type == "avg":
                 prev_features /= 2
-            reconstructed_images = self.clip.apply(output_conv(prev_features))
+            reconstructed_images = self.clip.apply(prev_features)
             with torch.no_grad():
                 _, _, height, width = reconstructed_images.shape
                 ds_images = F.interpolate(images.tensor.float(), size=(height, width))
