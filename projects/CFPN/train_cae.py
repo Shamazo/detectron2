@@ -42,5 +42,5 @@ def setup(args):
 
 if __name__ == "__main__":
     cfg = setup([])
-    trainer = DefaultTrainer(cfg)
+    trainer = Trainer(cfg)
     trainer.train()
