@@ -20,8 +20,6 @@ import cfpn.cae.backbone_hooks
 
 def add_theis_config(cfg):
     _C = cfg
-    if _C.MODEL.THEIS_CAE:
-        return
     _C.MODEL.THEIS_CAE = CN()
     _C.MODEL.THEIS_CAE.OUT_FEATURE = "cae_encoder_top"
 
