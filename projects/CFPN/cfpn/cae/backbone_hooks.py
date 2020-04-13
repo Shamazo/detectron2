@@ -7,11 +7,9 @@ class CompressiveEncoderBackbone(Backbone):
     def __init__(self, cfg, input_shape: ShapeSpec):
         super(CompressiveEncoderBackbone, self).__init__()
         assert input_shape.width == input_shape.height and "Width must be equal to height for Theis CAE."
-        print(input_shape.width)
-        assert not input_shape.width or input_shape.width == 128
-
+        assert not input_shape.width or input_shape.width == 128 and "Either no width or the width is 128"
+        self.name = cfg.MODEL.THEIS_CAE.OUT_FEATURE
         self.enc = Encoder()
-        self.name = "cae_encoder_top"
 
     def forward(self, image):
         return {self.name: self.enc(image)}
