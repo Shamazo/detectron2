@@ -23,6 +23,14 @@ def add_theis_config(cfg):
     _C.MODEL.THEIS_CAE = CN()
     _C.MODEL.THEIS_CAE.OUT_FEATURE = "cae_encoder_top"
 
+class Trainer(DefaultTrainer):
+    @classmethod
+    def build_evaluator(cls, cfg: CfgNode, dataset_name):
+        eval_img = cfg.TEST.TEST_IMAGES[0]
+        evaluators = [COCOEvaluator(dataset_name, cfg, True)]
+        return DatasetEvaluators(evaluators)
+
+
 def setup(args):
     cfg = get_cfg()
     add_theis_config(cfg)
