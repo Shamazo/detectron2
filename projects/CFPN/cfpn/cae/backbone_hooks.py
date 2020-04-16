@@ -51,8 +51,8 @@ class RCNNwithReconstruction(GeneralizedRCNN):
         _, reconstruction_losses = self.reconstruct_heads(images, features)
 
         losses = {}
-        losses.update(detector_losses)
-        losses.update(proposal_losses)
+        # losses.update(detector_losses)
+        # losses.update(proposal_losses)
         losses.update(reconstruction_losses)
         return losses
 
