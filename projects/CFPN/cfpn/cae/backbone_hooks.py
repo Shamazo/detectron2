@@ -65,6 +65,10 @@ class CompressiveEncoderBackbone(Backbone):
         assert not input_shape.width or input_shape.width == 128 and "Either no width or the width is 128"
         self.name = cfg.MODEL.THEIS_CAE.OUT_FEATURE
         self.enc = Encoder()
+        self._size_divisibility = 128 # this is needed to fix some image errors
+
+    def size_divisibility(self):
+        return self._size_divisibility
 
     def forward(self, image):
         out = self.enc(image)
