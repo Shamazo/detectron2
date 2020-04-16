@@ -13,9 +13,10 @@ from detectron2.config import CfgNode as CN
 from detectron2.utils.logger import setup_logger
 import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators
-from cfpn.cfpn import CFPN
-from cfpn.evaluator import CompressionEvaluator
-from cfpn.datasets.kodak import download_kodak, register_kodak
+from .cfpn.cfpn import CFPN
+from .cfpn.evaluator import CompressionEvaluator
+from .cfpn.datasets.kodak import download_kodak, register_kodak
+
 
 def add_cfpn_config(cfg):
     _C = cfg
@@ -42,8 +43,6 @@ class Trainer(DefaultTrainer):
         return DatasetEvaluators(evaluators)
 
 
-
-
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
@@ -55,6 +54,7 @@ def setup(args):
     default_setup(cfg, args)
     setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="cfpn")
     return cfg
+
 
 cfg = setup([])
 print(cfg)
