@@ -87,6 +87,7 @@ class CompressiveDecoderHead(nn.Module):
         mask = torch.zeros_like(y_dec).to(y_dec.device)
         for i, shape in enumerate(images.image_sizes):
             mask[i, 0:shape[0], 0:shape[1]] = 1
+        print("features.shape {} {}".format(self.input_ftr_name, features[self.input_ftr_name]))
         print("y_dec.shape {}".format(y_dec.shape))
         print("mask.shape {}".format(mask.shape))
         print("images.shape {}".format(images.tensor.shape))
