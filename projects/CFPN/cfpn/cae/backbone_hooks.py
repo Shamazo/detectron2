@@ -21,7 +21,7 @@ class RCNNwithReconstruction(GeneralizedRCNN):
 
     def forward(self, batched_inputs):
         if not self.training:
-            return super().forward(batched_inputs)
+            return self.inference(batched_inputs)
         images = self.preprocess_image(batched_inputs)
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
@@ -56,6 +56,22 @@ class RCNNwithReconstruction(GeneralizedRCNN):
         losses.update(reconstruction_losses)
         return losses
 
+    def inference(self, batched_inputs):
+        """
+        Run inference on the given inputs.
+
+        Args:
+            batched_inputs (list[dict]): same as in :meth:`forward`
+        Returns:
+            Dict[str->tensor] mapping output image names to the tensor in n,c,h,w format
+        """
+        assert not self.training
+
+        images = self.preprocess_image(batched_inputs)
+        features = self.backbone(images.tensor.float())
+
+        reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
+        return reconstructed_images
 
 @BACKBONE_REGISTRY.register()
 class CompressiveEncoderBackbone(Backbone):

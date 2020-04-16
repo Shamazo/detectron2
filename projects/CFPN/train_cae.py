@@ -1,3 +1,4 @@
+import os
 from detectron2.config import CfgNode, get_cfg
 from detectron2.engine import SimpleTrainer, HookBase, default_setup, DefaultTrainer
 from detectron2.config import CfgNode as CN
@@ -22,6 +23,7 @@ def add_theis_config(cfg):
 class Trainer(DefaultTrainer):
     @classmethod
     def build_evaluator(cls, cfg_arg: CfgNode, dataset_name):
+        output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
         if dataset_name != 'kodak_test':
             evaluators = [COCOEvaluator(dataset_name, cfg_arg, True)]
         else:
