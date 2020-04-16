@@ -1,0 +1,4 @@
+_BASE_: "multilevel_subpixel_CFPN_1x.yaml"
+MODEL:
+  QUANTIZER_ON: True
+  BACKBONE: 'QFPN'
