@@ -67,6 +67,7 @@ class CompressiveEncoderBackbone(Backbone):
         self.enc = Encoder()
         self._size_divisibility = 128 # this is needed to fix some image errors
 
+    @property
     def size_divisibility(self):
         return self._size_divisibility
 
