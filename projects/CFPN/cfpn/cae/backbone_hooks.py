@@ -67,6 +67,8 @@ class CompressiveEncoderBackbone(Backbone):
         self.enc = Encoder()
 
     def forward(self, image):
+        out = self.enc(image)
+        print("Encoder forward image shape {} and output shape {}".format(image.shape, out.shape))
         return {self.name: self.enc(image)}
 
     def output_shape(self):
