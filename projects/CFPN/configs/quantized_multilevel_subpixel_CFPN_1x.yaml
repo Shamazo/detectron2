@@ -1,6 +1,6 @@
 _BASE_: "Base-Quantized-CFPN.yaml"
 MODEL:
-  DEVICE: 'cpu'
+  DEVICE: 'cuda:0'
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
     OUT_CHANNELS: 512

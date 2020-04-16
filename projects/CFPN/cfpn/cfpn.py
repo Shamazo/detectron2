@@ -145,7 +145,6 @@ class CFPN(nn.Module):
                  self.visualize_training(reconstructed_images, images)
 
         comb_losses = {**reconstruction_losses, **quantization_losses}
-        print(comb_losses)
         return comb_losses
 
     def inference(self, batched_inputs):

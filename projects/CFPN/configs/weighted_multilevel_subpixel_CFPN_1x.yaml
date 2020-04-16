@@ -1,0 +1,4 @@
+_BASE_: "multilevel_subpixel_CFPN_1x.yaml"
+MODEL:
+  RECONSTRUCT_HEADS:
+    LOSS_WEIGHTS: [1, 0, 0, 0]

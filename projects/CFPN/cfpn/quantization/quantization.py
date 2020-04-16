@@ -90,8 +90,8 @@ class GSM(Quantizer):
         self.params = dict()
         for feat in self.in_features:
             print("GSM FEAT", feat)
-            variance = torch.randn([1, input_shape[feat].channels, 1, 1, self.s])
-            pi = torch.randn(1, input_shape[feat].channels, 1, 1, self.s)
+            variance = torch.randn([1, input_shape[feat].channels, 1, 1, self.s]).to(self.device)
+            pi = torch.randn(1, input_shape[feat].channels, 1, 1, self.s).to(self.device)
             self.params[feat] = dict()
             self.params[feat]['variance'] = torch.nn.Parameter(variance)
             self.params[feat]['pi'] = torch.nn.Parameter(pi)

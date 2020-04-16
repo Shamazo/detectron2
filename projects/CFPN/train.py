@@ -25,13 +25,15 @@ def add_cfpn_config(cfg):
     _C.MODEL.RECONSTRUCT_HEADS.IN_FEATURES = ["p2", "p3", "p4", "p5", "p6"]
     _C.MODEL.RECONSTRUCT_HEADS.IN_CHANNELS = 256
     _C.MODEL.RECONSTRUCT_HEADS.OUTPUT_IMAGES = ['img_2', 'img_3', 'img_4', 'img_5', 'img_6']
+    #how much to weight the reconstruction at each level by
+    _C.MODEL.RECONSTRUCT_HEADS.LOSS_WEIGHTS = [1, 1, 1, 1, 1]
     _C.TEST.TEST_IMAGES = ["img_2"]
     _C.MODEL.QUANTIZER_ON = False
     _C.MODEL.QUANTIZER = CN()
     _C.MODEL.QUANTIZER.IN_FEATURES = ["res2", "res3", "res4", "res5"]
     # These are the weights for the loss functions
     # Must be the same length as in_features and correspond one to one
-    _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [10, 10, 10, 10]
+    _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [1, 1, 1, 1]
     _C.MODEL.QUANTIZER.NAME = 'GSM'
 
 
@@ -54,7 +56,7 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('./configs/quantized_multilevel_subpixel_CFPN_1x.yaml')
+    cfg.merge_from_file('/home/hamish/cs265/detectron2/projects/CFPN/configs/quantized_multilevel_residual_CFPN_1x.yaml')
     # cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()
