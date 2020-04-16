@@ -73,7 +73,7 @@ class CompressiveEncoderBackbone(Backbone):
 
     def forward(self, image):
         out = self.enc(image)
-        print("Encoder forward image shape {} and output shape {}".format(image.shape, out.shape))
+        # print("Encoder forward image shape {} and output shape {}".format(image.shape, out.shape))
         return {self.name: self.enc(image)}
 
     def output_shape(self):
@@ -94,10 +94,10 @@ class CompressiveDecoderHead(nn.Module):
         mask = torch.zeros_like(y_dec).to(y_dec.device)
         for i, shape in enumerate(images.image_sizes):
             mask[i, 0:shape[0], 0:shape[1]] = 1
-        print("features.shape {} {}".format(self.input_ftr_name, features[self.input_ftr_name].shape))
-        print("y_dec.shape {}".format(y_dec.shape))
-        print("mask.shape {}".format(mask.shape))
-        print("images.shape {}".format(images.tensor.shape))
+        # print("features.shape {} {}".format(self.input_ftr_name, features[self.input_ftr_name].shape))
+        # print("y_dec.shape {}".format(y_dec.shape))
+        # print("mask.shape {}".format(mask.shape))
+        # print("images.shape {}".format(images.tensor.shape))
         loss = self.loss(y_dec * mask, images.tensor.float())
         return ({'img_2': y_dec}, {'mse': loss})
 
