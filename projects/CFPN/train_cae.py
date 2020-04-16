@@ -4,7 +4,7 @@ from detectron2.config import CfgNode as CN
 from detectron2.utils.logger import setup_logger
 import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, PascalVOCDetectionEvaluator
-
+from cfpn.evaluator import CompressionEvaluator
 import cfpn.cae.backbone_hooks
 
 
@@ -22,7 +22,12 @@ def add_theis_config(cfg):
 class Trainer(DefaultTrainer):
     @classmethod
     def build_evaluator(cls, cfg_arg: CfgNode, dataset_name):
-        evaluators = [COCOEvaluator(dataset_name, cfg_arg, True)]
+        if dataset_name != 'kodak_test':
+            evaluators = [COCOEvaluator(dataset_name, cfg_arg, True)]
+        else:
+            evaluators = []
+        if cfg.MODEL.RECONSTRUCT_HEADS_ON and dataset_name == 'kodak_test':
+            evaluators.append(CompressionEvaluator(dataset_name, output_folder, eval_img=eval_img))
         return DatasetEvaluators(evaluators)
 
 

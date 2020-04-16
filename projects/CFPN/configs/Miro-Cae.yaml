@@ -21,9 +21,9 @@ MODEL:
     POOLER_RESOLUTION: 14
 DATASETS:
   TRAIN: ("voc_2012_train",)
-  # TEST: ("kodak_test",)
+  TEST: ("kodak_test",)
   # TRAIN: ("coco_2017_train",)
-  TEST: ("coco_2017_val",)
+#  TEST: ("coco_2017_val",)
 TEST:
   EVAL_PERIOD: 1000
 SOLVER:
@@ -34,4 +34,6 @@ SOLVER:
 INPUT:
   MIN_SIZE_TRAIN: (128,)
   MAX_SIZE_TRAIN: 128
+  MIN_SIZE_TEST: (128,)
+  MAX_SIZE_TEST: 128
 VERSION: 2

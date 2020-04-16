@@ -21,7 +21,7 @@ class RCNNwithReconstruction(GeneralizedRCNN):
 
     def forward(self, batched_inputs):
         if not self.training:
-            return super().forward(self, batched_inputs)
+            return super().forward(batched_inputs)
         images = self.preprocess_image(batched_inputs)
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
