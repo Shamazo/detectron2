@@ -9,7 +9,7 @@ from detectron2.structures import ImageList
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.logger import log_first_n
 
-from detectron2.modeling.backbone import build_backbone
+from detectron2.modeling.backbone import build_backbone, build_resnet_backbone
 from detectron2.modeling.backbone.fpn import LastLevelMaxPool
 from detectron2.modeling.meta_arch import META_ARCH_REGISTRY
 from detectron2.modeling.backbone.build import BACKBONE_REGISTRY

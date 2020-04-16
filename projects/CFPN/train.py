@@ -21,8 +21,7 @@ def add_cfpn_config(cfg):
     #how much to weight the reconstruction at each level by
     _C.MODEL.RECONSTRUCT_HEADS.LOSS_WEIGHTS = [1, 1, 1, 1, 1]
     _C.TEST.TEST_IMAGES = ["img_2"]
-<<<<<<< HEAD
-=======
+
     _C.MODEL.QUANTIZER_ON = False
     _C.MODEL.QUANTIZER = CN()
     _C.MODEL.QUANTIZER.IN_FEATURES = ["res2", "res3", "res4", "res5"]
@@ -30,7 +29,6 @@ def add_cfpn_config(cfg):
     # Must be the same length as in_features and correspond one to one
     _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [1, 1, 1, 1]
     _C.MODEL.QUANTIZER.NAME = 'GSM'
->>>>>>> 35d962d... Added deeper reconstruction head using residual blocks. This achieves better reconstruction performance.
 
 
 class Trainer(DefaultTrainer):
