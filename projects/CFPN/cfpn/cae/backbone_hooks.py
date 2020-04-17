@@ -48,6 +48,7 @@ class RCNNwithReconstruction(GeneralizedRCNN):
     def forward(self, batched_inputs):
         if not self.training:
             return self.inference(batched_inputs)
+        images_to_compare = self.preprocess_image(batched_inputs, norm=False)
         images = self.preprocess_image(batched_inputs)
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
@@ -74,7 +75,7 @@ class RCNNwithReconstruction(GeneralizedRCNN):
         #     if storage.iter % self.vis_period == 0:
         #         self.visualize_training(batched_inputs, proposals)
 
-        _, reconstruction_losses = self.reconstruct_heads(images, features)
+        _, reconstruction_losses = self.reconstruct_heads(images_to_compare, features)
 
         losses = {}
         # losses.update(detector_losses)
@@ -99,6 +100,15 @@ class RCNNwithReconstruction(GeneralizedRCNN):
         reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
         return reconstructed_images
 
+    def preprocess_image(self, batched_inputs, norm=True):
+        """
+        Normalize, pad and batch the input images.
+        """
+        images = [x["image"].to(self.device) for x in batched_inputs]
+        if norm:
+            images = [self.normalizer(x) for x in images]
+        images = ImageList.from_tensors(images, self.backbone.size_divisibility)
+        return images
 
 @BACKBONE_REGISTRY.register()
 class CompressiveEncoderBackbone(Backbone):

@@ -150,7 +150,7 @@ class Decoder(nn.Module):
         assert not (z != z).any()
 
         z = z * 255  # returning to [0, 255]
-        # z = self.clip(z)  # round to nearest int and cast to byte
+        z = self.clip(z)  # round to nearest int and cast to byte
         return z
 
 
