@@ -22,11 +22,14 @@ def add_theis_config(cfg):
     _C.MODEL.RECONSTRUCT_HEADS.NAME = ""
     _C.MODEL.RECONSTRUCT_HEADS.IN_FEATURES = []
 
+    _C.TEST.TEST_IMAGES = ["img_2"]
+
 
 class Trainer(DefaultTrainer):
     @classmethod
     def build_evaluator(cls, cfg_arg: CfgNode, dataset_name):
         output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        eval_img = cfg.TEST.TEST_IMAGES[0]
         if dataset_name != 'kodak_test':
             evaluators = [COCOEvaluator(dataset_name, cfg_arg, True)]
         else:
