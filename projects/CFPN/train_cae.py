@@ -15,6 +15,7 @@ def add_theis_config(cfg):
     _C = cfg
     _C.MODEL.THEIS_CAE = CN()
     _C.MODEL.THEIS_CAE.OUT_FEATURE = "cae_encoder_top"
+    _C.MODEL.THEIS_CAE.PATCHED  = False
 
     _C.MODEL.RECONSTRUCT_HEADS = CN()
     _C.MODEL.RECONSTRUCT_HEADS_ON = False

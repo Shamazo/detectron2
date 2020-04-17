@@ -13,6 +13,29 @@ import torch
 from .models import Encoder, Decoder
 from ..reconstruct_heads.reconstruct_heads import RECONSTRUCT_HEADS_REGISTRY, build_reconstruct_heads
 
+
+class PatchUtil:
+    """Class functioning as a namespace for utils related
+    to patching.
+    """
+
+    @staticmethod
+    def batched_patches(images, patch_size):
+        patches = images.unfold(-2, patch_size, patch_size)
+        patches = patches.unfold(-2, patch_size, patch_size)
+        patches = patches.permute(0, 2, 3, 1, -2, -1)
+        _, patch_x, patch_y, _, _, _ = patches
+        return patches.permute(0, 2, 3, 1, -2, -1).flatten(0, 2), patch_x, patch_y
+
+    @staticmethod
+    def reconstruct_from_batched_patches(batched_out, patch_x=4, patch_y=4):
+        batches, channels, x, y = batched_out.shape
+        assert x == y
+        bsz = batches / (patch_x * patch_y)
+        out = batched_out.view(bsz, patch_x, patch_y, channels, x, y).permute(0, 3, 1, 2, -2, -1)
+        return out.transpose(-3, -2).flatten(-2, -1).flatten(-3, -2)
+
+
 @META_ARCH_REGISTRY.register()
 class RCNNwithReconstruction(GeneralizedRCNN):
     def __init__(self, cfg):
@@ -73,6 +96,7 @@ class RCNNwithReconstruction(GeneralizedRCNN):
         reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
         return reconstructed_images
 
+
 @BACKBONE_REGISTRY.register()
 class CompressiveEncoderBackbone(Backbone):
     def __init__(self, cfg, input_shape: ShapeSpec):
@@ -80,17 +104,22 @@ class CompressiveEncoderBackbone(Backbone):
         assert input_shape.height == input_shape.width and "Width must be equal to height for Theis CAE."
         assert not input_shape.width or input_shape.width == 128 and "Either no width or the width is 128"
         self.name = cfg.MODEL.THEIS_CAE.OUT_FEATURE
+        self.patched = cfg.MODEL.THEIS_CAE.PATCHED
         self.enc = Encoder()
-        self._size_divisibility = 128 # this is needed to fix some image errors
+        self._size_divisibility = 128  # this is needed to fix some image errors
 
     @property
     def size_divisibility(self):
         return self._size_divisibility
 
-    def forward(self, image):
+
+    def forward(self, image: torch.Tensor):
+        if self.patched:
+            image, patch_x, patch_y = PatchUtil.batched_patches(image, self._size_divisibility)
         out = self.enc(image)
-        # print("Encoder forward image shape {} and output shape {}".format(image.shape, out.shape))
-        return {self.name: self.enc(image)}
+        if self.patched:
+            out = PatchUtil.reconstruct_from_batched_patches(out, patch_x=patch_x, patch_y=patch_y)
+        return {self.name: out}
 
     def output_shape(self):
         return {self.name: ShapeSpec(stride=8, channels=96, height=16, width=16)}
@@ -103,10 +132,16 @@ class CompressiveDecoderHead(nn.Module):
         self.dec = Decoder()
         self.loss = nn.MSELoss()
         self.input_ftr_name = cfg.MODEL.THEIS_CAE.OUT_FEATURE
+        self.patched = cfg.MODEL.THEIS_CAE.PATCHED
 
-    def forward(self, images: torch.Tensor, features: Dict[str, torch.Tensor]) -> Tuple[ImageList, Dict[str, torch.Tensor]]:
+    def forward(self, images: torch.Tensor, features: Dict[str, torch.Tensor]) -> Tuple[
+        ImageList, Dict[str, torch.Tensor]]:
         y_dec = features[self.input_ftr_name]
+        if self.patched:
+            y_dec, patch_x, patch_y = PatchUtil.batched_patches(y_dec, 16)
         y_dec = self.dec(y_dec)
+        if self.patched:
+            y_dec = PatchUtil.reconstruct_from_batched_patches(y_dec, patch_x=patch_x, patch_y=patch_y)
         mask = torch.zeros_like(y_dec).to(y_dec.device)
         for i, shape in enumerate(images.image_sizes):
             mask[i, 0:shape[0], 0:shape[1]] = 1
@@ -116,4 +151,3 @@ class CompressiveDecoderHead(nn.Module):
         # print("images.shape {}".format(images.tensor.shape))
         loss = self.loss(y_dec * mask, images.tensor.float())
         return ({'img_2': y_dec}, {'mse': loss})
-

@@ -4,6 +4,7 @@ MODEL:
     NAME: "CompressiveEncoderBackbone"
   THEIS_CAE:
     OUT_FEATURE: "cae_encoder_top"
+    PATCHED: True
   RPN:
     IN_FEATURES: ["cae_encoder_top"]
     PRE_NMS_TOPK_TEST: 6000
@@ -36,8 +37,8 @@ SOLVER:
   STEPS: (60000, 80000)
   MAX_ITER: 90000
 INPUT:
-  MIN_SIZE_TRAIN: (128,)
-  MAX_SIZE_TRAIN: 128
-  MIN_SIZE_TEST: 128
-  MAX_SIZE_TEST: 128
+  MIN_SIZE_TRAIN: (512,)
+  MAX_SIZE_TRAIN: 512
+  MIN_SIZE_TEST: 512
+  MAX_SIZE_TEST: 512
 VERSION: 2
