@@ -61,18 +61,18 @@ class RCNNwithReconstruction(GeneralizedRCNN):
 
         features = self.backbone(images.tensor)
 
-        if self.proposal_generator:
-            proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
-        else:
-            assert "proposals" in batched_inputs[0]
-            proposals = [x["proposals"].to(self.device) for x in batched_inputs]
-            proposal_losses = {}
-
-        _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
-        if self.vis_period > 0:
-            storage = get_event_storage()
-            if storage.iter % self.vis_period == 0:
-                self.visualize_training(batched_inputs, proposals)
+        # if self.proposal_generator:
+        #     proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+        # else:
+        #     assert "proposals" in batched_inputs[0]
+        #     proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+        #     proposal_losses = {}
+        #
+        # _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
+        # if self.vis_period > 0:
+        #     storage = get_event_storage()
+        #     if storage.iter % self.vis_period == 0:
+        #         self.visualize_training(batched_inputs, proposals)
 
         _, reconstruction_losses = self.reconstruct_heads(images, features)
 
