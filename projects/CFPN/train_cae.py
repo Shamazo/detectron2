@@ -7,6 +7,8 @@ import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, PascalVOCDetectionEvaluator
 from cfpn.evaluator import CompressionEvaluator
 import cfpn.cae.backbone_hooks
+from cfpn.datasets.kodak import download_kodak, register_kodak
+
 
 
 def add_theis_config(cfg):
@@ -37,6 +39,8 @@ def setup(args):
     cfg = get_cfg()
     add_theis_config(cfg)
     cfg.merge_from_file('./configs/Miro-CAE-reconstruct.yaml')
+    download_kodak()
+    register_kodak()
     cfg.freeze()
     default_setup(cfg, args)
     setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="cae")
