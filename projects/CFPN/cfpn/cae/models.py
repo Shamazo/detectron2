@@ -127,21 +127,28 @@ class Decoder(nn.Module):
 
     def forward(self, x):
         z = self.op_1(x)  # downsample
+        assert not (z!=z).any()
 
         # print(z.shape)
 
         z = z + self.op_2(z)  # residual
+        assert not (z != z).any()
 
         # print(z.shape)
 
         z = z + self.op_3(z)
+        assert not (z != z).any()
 
         # print(z.shape)
         z = z + self.op_4(z)
+        assert not (z != z).any()
 
         z = self.op_5_activation(self.op_5(z))  # upsample
+        assert not (z != z).any()
 
         z = self.op_6(z)  # upsample
+        assert not (z != z).any()
+
         z = z * 255  # returning to [0, 255]
         z = self.clip(z)  # round to nearest int and cast to byte
         return z
