@@ -26,7 +26,7 @@ class PatchUtil:
         patches = patches.unfold(-2, patch_size, patch_size)
         patches = patches.permute(0, 2, 3, 1, -2, -1)
         _, patch_x, patch_y, _, _, _ = patches.shape
-        patches = patches.permute(0, 2, 3, 1, -2, -1).flatten(0, 2)
+        patches = patches.flatten(0, 2)
         print("Outputting batched size of {}".format(patches.shape))
         return patches, patch_x, patch_y
 
