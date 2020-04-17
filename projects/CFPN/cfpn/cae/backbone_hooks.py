@@ -21,13 +21,13 @@ class PatchUtil:
 
     @staticmethod
     def batched_patches(images, patch_size):
-        print("Begin batch of {}".format(images.shape))
+        # print("Begin batch of {}".format(images.shape))
         patches = images.unfold(-2, patch_size, patch_size)
         patches = patches.unfold(-2, patch_size, patch_size)
         patches = patches.permute(0, 2, 3, 1, -2, -1)
         _, patch_x, patch_y, _, _, _ = patches.shape
         patches = patches.flatten(0, 2)
-        print("Outputting batched size of {}".format(patches.shape))
+        # print("Outputting batched size of {}".format(patches.shape))
         return patches, patch_x, patch_y
 
     @staticmethod

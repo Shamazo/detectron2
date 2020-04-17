@@ -94,7 +94,7 @@ class Encoder(nn.Module):
 
         z = self.op_6(z)  # upsample
 
-        z = self.quantize(z)  # quantization trick
+        # z = self.quantize(z)  # quantization trick
         return z
 
 
