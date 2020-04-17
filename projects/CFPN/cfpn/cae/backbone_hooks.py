@@ -152,5 +152,5 @@ class CompressiveDecoderHead(nn.Module):
         # print("y_dec.shape {}".format(y_dec.shape))
         # print("mask.shape {}".format(mask.shape))
         # print("images.shape {}".format(images.tensor.shape))
-        loss = self.loss(y_dec * mask, images.tensor.float())/1000.
+        loss = self.loss(y_dec * mask, images.tensor.float())/100000.
         return ({'img_2': y_dec}, {'mse': loss})
