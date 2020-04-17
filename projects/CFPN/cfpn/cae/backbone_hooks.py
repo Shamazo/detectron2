@@ -24,7 +24,7 @@ class PatchUtil:
         patches = images.unfold(-2, patch_size, patch_size)
         patches = patches.unfold(-2, patch_size, patch_size)
         patches = patches.permute(0, 2, 3, 1, -2, -1)
-        _, patch_x, patch_y, _, _, _ = patches
+        _, patch_x, patch_y, _, _, _ = patches.shape
         return patches.permute(0, 2, 3, 1, -2, -1).flatten(0, 2), patch_x, patch_y
 
     @staticmethod
