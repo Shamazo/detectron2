@@ -5,9 +5,10 @@ from detectron2.config import CfgNode as CN
 from detectron2.utils.logger import setup_logger
 import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, PascalVOCDetectionEvaluator
+
 from cfpn.evaluator import CompressionEvaluator
-import cfpn.cae.backbone_hooks
 from cfpn.datasets.kodak import download_kodak, register_kodak
+from cfpn.meta_arch import RCNNwithReconstruction
 
 
 

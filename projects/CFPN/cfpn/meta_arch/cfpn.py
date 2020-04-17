@@ -12,7 +12,7 @@ from detectron2.utils.logger import log_first_n
 from detectron2.modeling.backbone import build_backbone
 from detectron2.modeling.meta_arch import META_ARCH_REGISTRY
 
-from .reconstruct_heads import build_reconstruct_heads
+from ..reconstruct_heads import build_reconstruct_heads
 
 __all__ = ["CFPN"]
 
