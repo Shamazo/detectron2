@@ -34,7 +34,7 @@ class PatchUtil:
     def reconstruct_from_batched_patches(batched_out, patch_x=4, patch_y=4):
         batches, channels, x, y = batched_out.shape
         assert x == y
-        bsz = batches / (patch_x * patch_y)
+        bsz = batches // (patch_x * patch_y)
         out = batched_out.view(bsz, patch_x, patch_y, channels, x, y).permute(0, 3, 1, 2, -2, -1)
         return out.transpose(-3, -2).flatten(-2, -1).flatten(-3, -2)
 
