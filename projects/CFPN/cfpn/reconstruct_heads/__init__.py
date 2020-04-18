@@ -3,3 +3,5 @@ from .reconstruct_heads import (
     ReconstructHeads,
     build_reconstruct_heads,
 )
+
+from .theis_reconstruct_head import CompressiveDecoderHead

@@ -1,0 +1,37 @@
+MODEL:
+  META_ARCHITECTURE: "GeneralizedRCNN"
+  BACKBONE:
+    NAME: "CompressiveEncoderBackbone"
+  THEIS_CAE:
+    OUT_FEATURE: "cae_encoder_top"
+  RPN:
+    IN_FEATURES: ["cae_encoder_top"]
+    PRE_NMS_TOPK_TEST: 6000
+    POST_NMS_TOPK_TEST: 1000
+  ROI_HEADS:
+    NAME: "StandardROIHeads"
+    IN_FEATURES: ["cae_encoder_top"]
+  ROI_BOX_HEAD:
+    NAME: "FastRCNNConvFCHead"
+    NUM_FC: 2
+    POOLER_RESOLUTION: 7
+  ROI_MASK_HEAD:
+    NAME: "MaskRCNNConvUpsampleHead"
+    NUM_CONV: 4
+    POOLER_RESOLUTION: 14
+DATASETS:
+  TRAIN: ("voc_2012_train",)
+  TEST: ("kodak_test",)
+  # TRAIN: ("coco_2017_train",)
+#  TEST: ("coco_2017_val",)
+TEST:
+  EVAL_PERIOD: 1000
+SOLVER:
+  IMS_PER_BATCH: 16
+  BASE_LR: 0.02
+  STEPS: (60000, 80000)
+  MAX_ITER: 90000
+INPUT:
+  MIN_SIZE_TRAIN: (128,)
+  MAX_SIZE_TRAIN: 128
+VERSION: 2
