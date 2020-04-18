@@ -144,7 +144,7 @@ class SubPixelReconstruct(nn.Module):
         """
 
         Args:
-            x: tensor, nchw
+            x: tensor, n,c,h,w
 
         Returns: tensor, NOT clipped to 0-255
 
