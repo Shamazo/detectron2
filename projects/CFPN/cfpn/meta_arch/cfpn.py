@@ -199,11 +199,7 @@ class CFPN(nn.Module):
         images = self.preprocess_image(batched_inputs, norm=False)
 
         features = self.backbone(normed_images.tensor)
-<<<<<<< HEAD:projects/CFPN/cfpn/meta_arch/cfpn.py
         if isinstance(features, tuple): # if using quantization the backbone returns features, losses
-=======
-        if isinstance(features, tuple): #if using quantization the backbone returns features, losses
->>>>>>> 35d962dcd22060d119a3a5b2381ceb6873e6ffca:projects/CFPN/cfpn/cfpn.py
             features, quantization_losses = features
         else:
             quantization_losses = {}
