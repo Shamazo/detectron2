@@ -262,7 +262,7 @@ class Caffe2GeneralizedRCNN(Caffe2MetaArch):
     @mock_torch_nn_functional_interpolate()
     def forward(self, inputs):
         if not self.tensor_mode:
-            return self._wrapped_model.inference(inputs)
+            return self._wrapped_model.inference(inputs, )
         images = self._caffe2_preprocess_image(inputs)
         features = self._wrapped_model.backbone(images.tensor)
         proposals, _ = self._wrapped_model.proposal_generator(images, features)

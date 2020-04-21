@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import detectron2.data.transforms as T
 from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
+
 class CompressionEvaluator(DatasetEvaluator):
     def __init__(self, dataset_name, output_dir, eval_img="img_2"):
         """
@@ -14,7 +15,7 @@ class CompressionEvaluator(DatasetEvaluator):
                 Currently hard coding to img_2 which is the largest, but in the future
                 we could also compare the lower resolution reproductions
         """
-        assert dataset_name=='kodak_test', "Can only evaluate compression on kodak_test"
+        assert dataset_name == 'kodak_test', "Can only evaluate compression on kodak_test"
         self.dataset_name = dataset_name
         self._output_dir = output_dir
         self.eval_img = eval_img
@@ -35,9 +36,9 @@ class CompressionEvaluator(DatasetEvaluator):
                 "instances" that contains :class:`Instances`.
                 The :class:`Instances` object needs to have `densepose` field.
         """
-        assert(len(inputs) == 1)
-        #reshape the input image to have a maximum length of 512 as the model preprocesses
-        #Much shuffling of data, but also the dataset is only 24 images
+        assert (len(inputs) == 1)
+        # reshape the input image to have a maximum length of 512 as the model preprocesses
+        # Much shuffling of data, but also the dataset is only 24 images
         orig_image = inputs[0]['image'].permute(1, 2, 0)
         orig_image = self.transform.get_transform(orig_image).apply_image(orig_image.numpy())
         orig_image = torch.tensor(orig_image).permute(2, 0, 1)

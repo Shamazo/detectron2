@@ -143,7 +143,7 @@ class RetinaNetE2ETest(ModelE2ETest):
             box_cls, box_delta = self.model.head(features)
             box_cls = [tensor(*k.shape) for k in box_cls]
             box_delta = [tensor(*k.shape) for k in box_delta]
-            det = self.model.inference(box_cls, box_delta, anchors, images.image_sizes)
+            det = self.model.inference(box_cls, )
             # all predictions (if any) are infinite or nan
             if len(det[0]):
                 self.assertTrue(torch.isfinite(det[0].pred_boxes.tensor).sum() == 0)

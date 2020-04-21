@@ -10,12 +10,14 @@ from detectron2.utils.events import get_event_storage
 from detectron2.utils.logger import log_first_n
 
 from detectron2.modeling.backbone import build_backbone, build_resnet_backbone
-from detectron2.modeling.backbone import FPN
 from detectron2.modeling.backbone.fpn import LastLevelMaxPool
 from detectron2.modeling.meta_arch import META_ARCH_REGISTRY
 from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
-from .reconstruct_heads import build_reconstruct_heads
-from .quantization import build_quantizer
+
+from ..reconstruct_heads import build_reconstruct_heads
+from ..quantization import build_quantizer
+from detectron2.modeling.backbone import FPN
+
 
 __all__ = ["CFPN", "QFPN"]
 
@@ -86,6 +88,70 @@ class QFPN(FPN):
 
 
 
+@BACKBONE_REGISTRY.register()
+class QFPN(FPN):
+    """
+    A quantized feature pyramid network, the lateral inputs are quantized
+    """
+    def __init__(self, cfg, input_shape):
+        bottom_up = build_resnet_backbone(cfg, input_shape)
+        in_features = cfg.MODEL.FPN.IN_FEATURES
+        out_channels = cfg.MODEL.FPN.OUT_CHANNELS
+        super().__init__(
+            bottom_up=bottom_up,
+            in_features=in_features,
+            out_channels=out_channels,
+            norm=cfg.MODEL.FPN.NORM,
+            top_block=LastLevelMaxPool(),
+            fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
+        )
+        input_shapes = bottom_up.output_shape()
+        self.quantizer = build_quantizer(cfg, input_shapes)
+
+    def forward(self, x):
+        """
+        Args:
+            input (dict[str->Tensor]): mapping feature map name (e.g., "res5") to
+                feature map tensor for each feature level in high to low resolution order.
+
+        Returns:
+            dict[str->Tensor]:
+                mapping from feature map name to FPN feature map tensor
+                in high to low resolution order. Returned feature names follow the FPN
+                paper convention: "p<stage>", where stage has stride = 2 ** stage e.g.,
+                ["p2", "p3", ..., "p6"].
+        """
+        # Reverse feature maps into top-down order (from low to high resolution)
+        bottom_up_features = self.bottom_up(x)
+        # quantize the bottom up features
+        bottom_up_features, quantization_losses = self.quantizer(bottom_up_features)
+        x = [bottom_up_features[f] for f in self.in_features[::-1]]
+        results = []
+        prev_features = self.lateral_convs[0](x[0])
+        results.append(self.output_convs[0](prev_features))
+        for features, lateral_conv, output_conv in zip(
+            x[1:], self.lateral_convs[1:], self.output_convs[1:]
+        ):
+            top_down_features = F.interpolate(prev_features, scale_factor=2, mode="nearest")
+            lateral_features = lateral_conv(features)
+            prev_features = lateral_features + top_down_features
+            if self._fuse_type == "avg":
+                prev_features /= 2
+            results.insert(0, output_conv(prev_features))
+
+        if self.top_block is not None:
+            top_block_in_feature = bottom_up_features.get(self.top_block.in_feature, None)
+            if top_block_in_feature is None:
+                top_block_in_feature = results[self._out_features.index(self.top_block.in_feature)]
+            results.extend(self.top_block(top_block_in_feature))
+        assert len(self._out_features) == len(results)
+        return dict(zip(self._out_features, results)), quantization_losses
+
+#qfpn which subclasses fpn
+
+#build resnet backbone but make it qfpn
+
+
 @META_ARCH_REGISTRY.register()
 class CFPN(nn.Module):
     """
@@ -132,8 +198,9 @@ class CFPN(nn.Module):
 
         normed_images = self.preprocess_image(batched_inputs)
         images = self.preprocess_image(batched_inputs, norm=False)
+
         features = self.backbone(normed_images.tensor)
-        if isinstance(features, tuple): #if using quantization the backbone returns features, losses
+        if isinstance(features, tuple): # if using quantization the backbone returns features, losses
             features, quantization_losses = features
         else:
             quantization_losses = {}
@@ -161,7 +228,11 @@ class CFPN(nn.Module):
 
         images = self.preprocess_image(batched_inputs)
         features = self.backbone(images.tensor.float())
+<<<<<<< HEAD:projects/CFPN/cfpn/meta_arch/cfpn.py
+        if isinstance(features, tuple):  # if using quantization the backbone returns features, losses
+=======
         if isinstance(features, tuple): #if using quantization the backbone returns features, losses
+>>>>>>> 35d962dcd22060d119a3a5b2381ceb6873e6ffca:projects/CFPN/cfpn/cfpn.py
             features, _ = features
 
         reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
