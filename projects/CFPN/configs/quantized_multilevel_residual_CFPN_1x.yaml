@@ -1,4 +1,17 @@
-_BASE_: "multilevel_subpixel_CFPN_1x.yaml"
+_BASE_: "Base-Quantized-CFPN.yaml"
 MODEL:
-  QUANTIZER_ON: True
-  BACKBONE: 'QFPN'
+  DEVICE: 'cuda:0'
+  FPN:
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    OUT_CHANNELS: 256
+  RECONSTRUCT_HEADS_ON: True
+  RECONSTRUCT_HEADS:
+    LOSS_WEIGHTS: [1, 1, 1, 1]
+    NAME: "MLResidualHead"
+    IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
+    IN_CHANNELS: 256
+SOLVER:
+  BASE_LR: 0.0002
+INPUT:
+  FORMAT: "BGR"
+

@@ -10,7 +10,6 @@ MODEL:
     NAME: "MLResidualHead"
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
     IN_CHANNELS: 128
-    OUTPUT_IMAGES: ['img_2', 'img_3', 'img_4', 'img_5', 'img_6']
 SOLVER:
   BASE_LR: 0.0002
 INPUT:
