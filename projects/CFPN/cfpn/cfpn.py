@@ -17,7 +17,7 @@ from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
 from .reconstruct_heads import build_reconstruct_heads
 from .quantization import build_quantizer
 
-__all__ = ["CFPN"]
+__all__ = ["CFPN", "QFPN"]
 
 @BACKBONE_REGISTRY.register()
 class QFPN(FPN):
@@ -97,6 +97,7 @@ class CFPN(nn.Module):
 
         self.device = torch.device(cfg.MODEL.DEVICE)
         self.backbone = build_backbone(cfg).to(self.device)
+        print(self.backbone)
         self.reconstruct_heads = build_reconstruct_heads(cfg, self.backbone.output_shape()).to(self.device)
         self.input_format = cfg.INPUT.FORMAT
         self.vis_period = cfg.VIS_PERIOD

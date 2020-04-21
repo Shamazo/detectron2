@@ -143,7 +143,7 @@ class GSM(Quantizer):
             x = features[feat]
             outputs[feat] = self.quantize(x)
 
-        return outputs
+        return outputs, []
 
 
 
