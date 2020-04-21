@@ -10,3 +10,5 @@ RUN pip install numpy==1.17
 RUN conda install wget -y
 RUN conda install unzip -y
 COPY setup.sh /workspace
+RUN chmod +x /workspace/setup.sh
+
