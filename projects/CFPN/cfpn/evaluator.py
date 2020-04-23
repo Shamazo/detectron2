@@ -74,9 +74,10 @@ class CompressionEvaluator(DatasetEvaluator):
         """
         assert dataset_name == 'kodak_test', "Can only evaluate compression \
                 on kodak_test not on {}".format(dataset_name)
-        self.train_loader = build_detection_train_loader(cfg)
+        # TODO use same images for min value and cdf calc
+        self.train_loader = iter(build_detection_train_loader(cfg))
         self.test_codes = defaultdict(list)
-        self.model = model.backbone.eval()
+        self.model = model.eval()
         self.code_feats = cfg.MODEL.QUANTIZER.IN_FEATURES
         self.num_train_images = cfg.TEST.NUM_COMPRESSION_IMAGES
         self.device = torch.device(cfg.MODEL.DEVICE)
@@ -87,6 +88,7 @@ class CompressionEvaluator(DatasetEvaluator):
         self.cdf = None
         self.test_codes = dict()
         self.test_pixels = dict()
+        self.seen_test_images = 0
         return
 
     def process(self, inputs, outputs):
@@ -96,12 +98,12 @@ class CompressionEvaluator(DatasetEvaluator):
             outputs: the outputs of a compressive model given those inputs, must
                 contain the keys listed in cfg.MODEL.QUANTIZER.IN_FEATURES
         """
-        for output, idx in enumerate(outputs):
-            self.test_codes["img_{}".format(idx)] = []
-            num_pixels = inputs[0]['image'].shape[1] * inputs[0]['image'].shape[0]
-            self.test_pixels["img_{}".format(idx)] = num_pixels
-            for code_feat in self.code_feats:
-                self.test_codes["img_{}".format(idx)].append(outputs[code_feat])
+        key = "img_{}".format(self.seen_test_images)
+        self.test_pixels[key] = inputs[0]['image'].shape[1] * inputs[0]['image'].shape[2]
+        self.test_codes[key] = []
+        for code_feat in self.code_feats:
+            self.test_codes[key].append(outputs[code_feat])
+        self.seen_test_images += 1
         return
 
     def evaluate(self):
@@ -114,12 +116,16 @@ class CompressionEvaluator(DatasetEvaluator):
         """
         self.build_latent_distribution()
         bpp = []
+        print("in evaluate built distribution")
         for key, codes in self.test_codes.items():
+            print(key)
             savepath = os.path.join(self.output_dir, key + ".dci")
             self.compress_image(codes, savepath)
+            print("File size bits ", os.stat(savepath).st_size * 8 )
+            print("Num pixels ", self.test_pixels[key])
             bpp.append(os.stat(savepath).st_size * 8 / self.test_pixels[key])
 
-        return {"bpp": np.mean(bpp)}
+        return {'Compression': {"bpp": np.mean(bpp)}}
 
     def build_latent_distribution(self, alpha: int = 1):
         """Two passes:num_images_pixels
@@ -130,54 +136,55 @@ class CompressionEvaluator(DatasetEvaluator):
           -> which we then laplace smooth and convert into a CDF.
         """
         self.cdf = dict()
-        self.min_val = dict()
-        for code_feat in self.code_feats:
-            self.min_val[code_feat] = torch.tensor(0.0).to(self.device).long()
+        self.min_val = torch.tensor(0.0).to(self.device).long()
+        # for code_feat in self.code_feats:
+        #     self.min_val[code_feat] = torch.tensor(0.0).to(self.device).long()
         num_images = 0
         self.model.eval()
         for batch in self.train_loader:
             with torch.no_grad():
                 out_dict = self.model(batch)
                 for code_feat in self.code_feats:
-                    self.min_val[code_feat] = torch.min(
-                        self.min_val[code_feat],
-                        out_dict[code_feat].min(),
+                    self.min_val = torch.min(
+                        self.min_val,
+                        out_dict[code_feat].long().min(),
                     )
             num_images += len(batch)
             if num_images > self.num_train_images:
                 break
 
-        for key in self.min_val:
-            self.min_val[key] = self.min_val[key].abs()
+        # for key in self.min_val:
+        #     self.min_val[key] = self.min_val[key].abs()
+        self.min_val = self.min_val.abs()
 
-        self.bins = dict()
-        for code_feat in self.code_feats:
-            self.bins[code_feat] = torch.tensor(0.0).to(self.device).long()
+        self.bins = torch.tensor([0.0]).to(self.device).long()
+        # for code_feat in self.code_feats:
+        #     self.bins[code_feat] = torch.tensor([0.0]).to(self.device).long()
         num_images = 0
         for batch in self.train_loader:
             with torch.no_grad():
                 out_dict = self.model(batch)
-
+                flat_codes = []
                 for code_feat in self.code_feats:
-                    out_dict[code_feat] = out_dict[code_feat].long() + self.min_val[code_feat]
-
-                    batch_bins = torch.bincount(out_dict[code_feat].flatten())
-                    if len(batch_bins) > len(self.bins[code_feat]):
-                        batch_bins[: len(self.bins[code_feat])] += self.bins[code_feat]
-                        self.bins[code_feat] = batch_bins
-                    elif len(self.bins[code_feat]) > len(batch_bins):
-                        self.bins[code_feat][: len(batch_bins)] += batch_bins
-                    else:
-                        self.bins[code_feat] += batch_bins
+                    flat_codes.append(out_dict[code_feat].long().flatten() + self.min_val)
+                batch_bins = torch.bincount(torch.cat(flat_codes))
+                if len(batch_bins) > len(self.bins):
+                    batch_bins[: len(self.bins)] += self.bins
+                    self.bins = batch_bins
+                elif len(self.bins) > len(batch_bins):
+                    self.bins[: len(batch_bins)] += batch_bins
+                else:
+                    self.bins += batch_bins
             num_images += len(batch)
             if num_images > self.num_train_images:
                 break
 
-        for code_feat in self.code_feats:
-            bins = self.bins[code_feat].float()
-            bins_smooth = (
-                        (bins + alpha) / (bins.sum() + len(bins) * alpha)).cpu()  # additive smooth counts using alpha
-            self.cdf[code_feat] = rc.prob_to_cum_freq(bins_smooth, resolution=2 * len(bins_smooth))  # convert pdf -> cdf
+
+        bins = self.bins.float()
+        bins_smooth = (
+                    (bins + alpha) / (bins.sum() + len(bins) * alpha)).cpu()  # additive smooth counts using alpha
+        self.cdf = rc.prob_to_cum_freq(bins_smooth, resolution=2 * len(bins_smooth))  # convert pdf -> cdf
+        self.model.train()
 
     def compress_image(self, code_list: List[torch.Tensor], savepath="default.dci"):
         """
@@ -191,15 +198,15 @@ class CompressionEvaluator(DatasetEvaluator):
             raise Exception(
                 "Cannot compress image without cdf function (hint: call build_latent_distribution)"
             )
+        flat_code_list = []
         for x in code_list:
             # Holds each flattened featured to be concatenated after the loop
-            code_list = []
-            for feat in self.code_feats:
-                assert x[feat] == 1, "can only compress one image at a time, for now"
-                code_list.append(x[feat].long().flatten())
-            full_code = torch.cat(code_list)
-            # use RangeEncoder to write compressed representation to file
-            encoder = rc.RangeEncoder(savepath)
-            encoder.encode(full_code.tolist(), self.cdf)
-            encoder.close()
+            assert x.shape[0] == 1, "can only compress one image at a time, for now"
+            flat_code_list.append(x.long().flatten())
+        full_code = torch.cat(flat_code_list) + self.min_val
+        # use RangeEncoder to write compressed representation to file
+        encoder = rc.RangeEncoder(savepath)
+        code_list = full_code.tolist()
+        encoder.encode(code_list, self.cdf)
+        encoder.close()
 

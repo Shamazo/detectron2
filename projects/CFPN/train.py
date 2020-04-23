@@ -39,7 +39,7 @@ def add_cfpn_config(cfg):
     _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [1, 1, 1, 1]
     _C.MODEL.QUANTIZER.NAME = 'GSM'
 
-    _C.TEST.NUM_COMPRESSION_IMAGES = 1000
+    _C.TEST.NUM_COMPRESSION_IMAGES = 50
 
 
 class Trainer(DefaultTrainer):
@@ -116,7 +116,7 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/test_bpp_eval.yaml')
+    cfg.merge_from_file('/home/hamish/cs265/detectron2/projects/CFPN/configs/test_bpp_eval.yaml')
     # cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()
@@ -127,6 +127,7 @@ def setup(args):
 
 
 if __name__ == "__main__":
+    os.chdir("/home/hamish")
     cfg = setup([])
     trainer = Trainer(cfg)
     trainer.train()

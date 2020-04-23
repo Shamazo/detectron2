@@ -55,7 +55,7 @@ class QFPN(FPN):
                 ["p2", "p3", ..., "p6"].
         """
         if not self.training:
-            self.inference(x)
+            return self.inference(x)
         # Reverse feature maps into top-down order (from low to high resolution)
         bottom_up_features = self.bottom_up(x)
         # quantize the bottom up features
@@ -122,9 +122,7 @@ class QFPN(FPN):
         assert len(self._out_features) == len(results)
         out_dict = dict(zip(self._out_features, results))
         for f in self.in_features:
-            print("QFPN f ", f)
             out_dict[f] = bottom_up_features[f]
-        print("QFPN outdict keys in gqfp", out_dict.keys())
         return out_dict, []
 
 
@@ -205,11 +203,8 @@ class CFPN(nn.Module):
         features = self.backbone(normed_images.tensor)
         if isinstance(features, tuple):  # if using quantization the backbone returns features, losses
             features, _ = features
-        print(self.backbone.training)
-        print("backbone out keys before reconstruct ", features.keys())
         reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
         # add the codes to the output dict
-        print("backbone out keys ", features.keys())
         for feat in self.backbone.in_features:
             reconstructed_images[feat] = features[feat]
         return reconstructed_images
