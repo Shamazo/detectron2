@@ -86,8 +86,11 @@ class CompressionEvaluator(DatasetEvaluator):
 
     def reset(self):
         self.cdf = None
+        # dict img_key -> list of features
         self.test_codes = dict()
+        # number of pixels in an image, does not include padding.
         self.test_pixels = dict()
+        # number of seen images in this evaluation, used for keys/filenames
         self.seen_test_images = 0
         return
 
@@ -134,11 +137,10 @@ class CompressionEvaluator(DatasetEvaluator):
             2. we then add |min| to the latent values such that they are all >= 0 and
                 then use torch.bincount to get discrete value counts
           -> which we then laplace smooth and convert into a CDF.
+          If a code is in multiple parts, e.g lateral FPN features, they are flattened and concatenated.
         """
         self.cdf = dict()
         self.min_val = torch.tensor(0.0).to(self.device).long()
-        # for code_feat in self.code_feats:
-        #     self.min_val[code_feat] = torch.tensor(0.0).to(self.device).long()
         num_images = 0
         self.model.eval()
         for batch in self.train_loader:
@@ -153,13 +155,8 @@ class CompressionEvaluator(DatasetEvaluator):
             if num_images > self.num_train_images:
                 break
 
-        # for key in self.min_val:
-        #     self.min_val[key] = self.min_val[key].abs()
         self.min_val = self.min_val.abs()
-
         self.bins = torch.tensor([0.0]).to(self.device).long()
-        # for code_feat in self.code_feats:
-        #     self.bins[code_feat] = torch.tensor([0.0]).to(self.device).long()
         num_images = 0
         for batch in self.train_loader:
             with torch.no_grad():
@@ -178,7 +175,6 @@ class CompressionEvaluator(DatasetEvaluator):
             num_images += len(batch)
             if num_images > self.num_train_images:
                 break
-
 
         bins = self.bins.float()
         bins_smooth = (
