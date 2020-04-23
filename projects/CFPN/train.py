@@ -8,8 +8,9 @@ import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, DatasetEvaluator, inference_on_dataset, \
     print_csv_format
 from collections import OrderedDict
-from cfpn.evaluator import ReconstructionEvaluator
+from cfpn.evaluator import ReconstructionEvaluator, CompressionEvaluator
 from cfpn.datasets.kodak import download_kodak, register_kodak
+from cfpn.meta_arch.cfpn import QFPN, CFPN
 
 
 def add_cfpn_config(cfg):
@@ -52,6 +53,8 @@ class Trainer(DefaultTrainer):
             evaluators = []
         if cfg.MODEL.RECONSTRUCT_HEADS_ON and dataset_name == 'kodak_test':
             evaluators.append(ReconstructionEvaluator(dataset_name, output_folder, eval_img=eval_img))
+        if cfg.MODEL.QUANTIZER_ON and dataset_name == 'kodak_test':
+            evaluators.append(CompressionEvaluator(cfg, dataset_name, model=model))
         return DatasetEvaluators(evaluators)
 
     @classmethod
@@ -63,7 +66,7 @@ class Trainer(DefaultTrainer):
             evaluators (list[DatasetEvaluator] or None): if None, will call
                 :meth:`build_evaluator`. Otherwise, must have the same length as
                 `cfg.DATASETS.TEST`.
-
+            This overides the default test function only by passing model to build evaluator
         Returns:
             dict: a dict of result metrics
         """
@@ -113,7 +116,7 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/quantized_multilevel_residual_CFPN_1x.yaml')
+    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/test_bpp_eval.yaml')
     # cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()

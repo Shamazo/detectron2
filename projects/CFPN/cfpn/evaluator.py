@@ -5,8 +5,11 @@ import detectron2.data.transforms as T
 from detectron2.data import build_detection_train_loader
 from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 from collections import defaultdict
+from typing import List
+import numpy as np
 import range_coder as rc
 import os
+
 
 class ReconstructionEvaluator(DatasetEvaluator):
     def __init__(self, dataset_name, output_dir, eval_img="img_2"):
@@ -64,27 +67,26 @@ class ReconstructionEvaluator(DatasetEvaluator):
 
 
 class CompressionEvaluator(DatasetEvaluator):
-    def __init__(self, cfg, output_dir, eval_img="img_2", model=None):
+    def __init__(self, cfg, dataset_name, model=None):
         """
         Args:
-            dataset_name: must be 'kodak_test' for now
-            output_dir:
-            eval_img: the key in the output which contains the image we are evaluating
-                Currently hard coding to img_2 which is the largest, but in the future
-                we could also compare the lower resolution reproductions
+            model: model to be evaluated.
         """
-        assert cfg.DATASETS.TEST == 'kodak_test', "Can only evaluate compression on kodak_test"
+        assert dataset_name == 'kodak_test', "Can only evaluate compression \
+                on kodak_test not on {}".format(dataset_name)
         self.train_loader = build_detection_train_loader(cfg)
         self.test_codes = defaultdict(list)
         self.model = model.backbone.eval()
         self.code_feats = cfg.MODEL.QUANTIZER.IN_FEATURES
         self.num_train_images = cfg.TEST.NUM_COMPRESSION_IMAGES
-        self.device = look up config later
-        self.filepath = os.join the output dir and some file
-        self.num_images_pixels = cfg stuff
+        self.device = torch.device(cfg.MODEL.DEVICE)
+        self.output_dir = cfg.OUTPUT_DIR
         return
 
     def reset(self):
+        self.cdf = None
+        self.test_codes = dict()
+        self.test_pixels = dict()
         return
 
     def process(self, inputs, outputs):
@@ -94,18 +96,30 @@ class CompressionEvaluator(DatasetEvaluator):
             outputs: the outputs of a compressive model given those inputs, must
                 contain the keys listed in cfg.MODEL.QUANTIZER.IN_FEATURES
         """
-        for code_feat in self.code_feats:
-            self.test_codes[code_feat].append(outputs[code_feat])
+        for output, idx in enumerate(outputs):
+            self.test_codes["img_{}".format(idx)] = []
+            num_pixels = inputs[0]['image'].shape[1] * inputs[0]['image'].shape[0]
+            self.test_pixels["img_{}".format(idx)] = num_pixels
+            for code_feat in self.code_feats:
+                self.test_codes["img_{}".format(idx)].append(outputs[code_feat])
         return
 
     def evaluate(self):
+        """
+        First we build the latent distribution on a subset of the training set
+        then we compress our testset, writing to file and then we see how many bits
+        the file is on disk, returning an average.
+        Returns:
 
+        """
+        self.build_latent_distribution()
+        bpp = []
+        for key, codes in self.test_codes.items():
+            savepath = os.path.join(self.output_dir, key + ".dci")
+            self.compress_image(codes, savepath)
+            bpp.append(os.stat(savepath).st_size * 8 / self.test_pixels[key])
 
-
-        # return {"bpp": os.stat(self.filepath).st_size * 8 / self.num_images_pixels}
-
-
-        return
+        return {"bpp": np.mean(bpp)}
 
     def build_latent_distribution(self, alpha: int = 1):
         """Two passes:num_images_pixels
@@ -120,13 +134,14 @@ class CompressionEvaluator(DatasetEvaluator):
         for code_feat in self.code_feats:
             self.min_val[code_feat] = torch.tensor(0.0).to(self.device).long()
         num_images = 0
+        self.model.eval()
         for batch in self.train_loader:
             with torch.no_grad():
                 out_dict = self.model(batch)
                 for code_feat in self.code_feats:
                     self.min_val[code_feat] = torch.min(
-                        self.min_val,
-                        code_feat.min(),
+                        self.min_val[code_feat],
+                        out_dict[code_feat].min(),
                     )
             num_images += len(batch)
             if num_images > self.num_train_images:
@@ -138,6 +153,7 @@ class CompressionEvaluator(DatasetEvaluator):
         self.bins = dict()
         for code_feat in self.code_feats:
             self.bins[code_feat] = torch.tensor(0.0).to(self.device).long()
+        num_images = 0
         for batch in self.train_loader:
             with torch.no_grad():
                 out_dict = self.model(batch)
@@ -153,6 +169,9 @@ class CompressionEvaluator(DatasetEvaluator):
                         self.bins[code_feat][: len(batch_bins)] += batch_bins
                     else:
                         self.bins[code_feat] += batch_bins
+            num_images += len(batch)
+            if num_images > self.num_train_images:
+                break
 
         for code_feat in self.code_feats:
             bins = self.bins[code_feat].float()
@@ -160,23 +179,27 @@ class CompressionEvaluator(DatasetEvaluator):
                         (bins + alpha) / (bins.sum() + len(bins) * alpha)).cpu()  # additive smooth counts using alpha
             self.cdf[code_feat] = rc.prob_to_cum_freq(bins_smooth, resolution=2 * len(bins_smooth))  # convert pdf -> cdf
 
-    def compress_image(self, x: torch.Tensor, filepath="default"):
-        """Compresses an image represented by a `torch.Tensor` x using the Encoder followed by
-        Range Encoding with the latent distribution. The compressed image is saved in `filepath`"""
+    def compress_image(self, code_list: List[torch.Tensor], savepath="default.dci"):
+        """
+        Args:
+            code_list: List of encodings for image
+            savepath: path to save the image to
+        Returns: Nothing, writes compressed image savepath
+        """
 
         if not self.cdf:
             raise Exception(
                 "Cannot compress image without cdf function (hint: call build_latent_distribution)"
             )
-        b, _, _, _ = self.shape
-        x = x.to(self.device)
-        if len(x.shape) == 3:  # Encoder needs batch dimension, so unsqueeze if necessary
-            x = x.unsqueeze(0)
-        assert x.shape == (b, 3, 128, 128)
-        out = self.E(x).long()
-        assert out.shape == self.shape
-
-        encoder = rc.RangeEncoder(filepath)  # use RangeEncoder to write compressed representation to file
-        encoder.encode(out.flatten().tolist(), self.cdf)
-        encoder.close()
+        for x in code_list:
+            # Holds each flattened featured to be concatenated after the loop
+            code_list = []
+            for feat in self.code_feats:
+                assert x[feat] == 1, "can only compress one image at a time, for now"
+                code_list.append(x[feat].long().flatten())
+            full_code = torch.cat(code_list)
+            # use RangeEncoder to write compressed representation to file
+            encoder = rc.RangeEncoder(savepath)
+            encoder.encode(full_code.tolist(), self.cdf)
+            encoder.close()
 

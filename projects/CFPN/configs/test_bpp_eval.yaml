@@ -1,0 +1,19 @@
+_BASE_: "Base-Quantized-CFPN.yaml"
+MODEL:
+  QUANTIZER_ON: True
+  DEVICE: 'cuda:0'
+  FPN:
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    OUT_CHANNELS: 256
+  RECONSTRUCT_HEADS_ON: False
+SOLVER:
+  IMS_PER_BATCH: 2
+  BASE_LR: 0.0002
+DATASETS:
+  TRAIN: ("coco_2017_train",)
+  TEST: ("kodak_test",)
+INPUT:
+  FORMAT: "BGR"
+TEST:
+  EVAL_PERIOD: 10
+
