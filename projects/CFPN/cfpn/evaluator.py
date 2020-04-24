@@ -82,6 +82,7 @@ class CompressionEvaluator(DatasetEvaluator):
         self.num_train_images = cfg.TEST.NUM_COMPRESSION_IMAGES
         self.device = torch.device(cfg.MODEL.DEVICE)
         self.output_dir = cfg.OUTPUT_DIR
+        self.negative_codes = cfg.TEST.NEGATIVE_CODES
         return
 
     def reset(self):
@@ -143,17 +144,18 @@ class CompressionEvaluator(DatasetEvaluator):
         self.min_val = torch.tensor(0.0).to(self.device).long()
         num_images = 0
         self.model.eval()
-        for batch in self.train_loader:
-            with torch.no_grad():
-                out_dict = self.model(batch)
-                for code_feat in self.code_feats:
-                    self.min_val = torch.min(
-                        self.min_val,
-                        out_dict[code_feat].long().min(),
-                    )
-            num_images += len(batch)
-            if num_images > self.num_train_images:
-                break
+        if self.negative_codes:
+            for batch in self.train_loader:
+                with torch.no_grad():
+                    out_dict = self.model(batch)
+                    for code_feat in self.code_feats:
+                        self.min_val = torch.min(
+                            self.min_val,
+                            out_dict[code_feat].long().min(),
+                        )
+                num_images += len(batch)
+                if num_images > self.num_train_images:
+                    break
 
         self.min_val = self.min_val.abs()
         self.bins = torch.tensor([0.0]).to(self.device).long()

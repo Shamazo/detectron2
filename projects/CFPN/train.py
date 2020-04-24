@@ -28,7 +28,7 @@ def add_cfpn_config(cfg):
     _C.MODEL.QUANTIZER.IN_FEATURES = ["res2", "res3", "res4", "res5"]
     # These are the weights for the loss functions
     # Must be the same length as in_features and correspond one to one
-    _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [10, 10, 10, 10]
+    _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [50, 50, 50, 50]
     _C.MODEL.QUANTIZER.NAME = 'GSM'
 
     _C.MODEL.QUANTIZER_ON = False
@@ -39,8 +39,12 @@ def add_cfpn_config(cfg):
     _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [1, 1, 1, 1]
     _C.MODEL.QUANTIZER.NAME = 'GSM'
 
-    _C.TEST.NUM_COMPRESSION_IMAGES = 50
-
+    _C.TEST.NUM_COMPRESSION_IMAGES = 1500
+    # if the encoded representation can have negative values (leaky-ReLU etc)
+    # then we need to add abs(biggest negative value) to the code
+    _C.TEST.NEGATIVE_CODES = False
+# [15, 15, 15, 15]
+# higher mse loss for lower levels for equal weight
 
 class Trainer(DefaultTrainer):
     @classmethod
@@ -116,7 +120,7 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('/home/hamish/cs265/detectron2/projects/CFPN/configs/test_bpp_eval.yaml')
+    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/quantized_multilevel_residual_CFPN_1x.yaml')
     # cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()
