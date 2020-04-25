@@ -12,3 +12,5 @@ RUN conda install unzip -y
 COPY setup.sh /workspace
 RUN chmod +x /workspace/setup.sh
 
+# docker pull mirofurtado/compressive-image
+# docker run --rm --mount type=bind,source="$(pwd)"/CFPN,target=/workspace/CFPN -it mirofurtado/compressive-image bash
