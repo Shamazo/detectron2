@@ -2,9 +2,12 @@ MODEL:
   META_ARCHITECTURE: "RCNNwithReconstruction"
   BACKBONE:
     NAME: "CompressiveEncoderBackbone"
+    FREEZE_AT: 0
   THEIS_CAE:
     OUT_FEATURE: "cae_encoder_top"
-    PATCHED: True
+    PATCHED: False
+    EDGE_LENGTH: 512
+    INTERIOR_DIM: 128
   RPN:
     IN_FEATURES: ["cae_encoder_top"]
     PRE_NMS_TOPK_TEST: 6000
@@ -24,16 +27,18 @@ MODEL:
   RECONSTRUCT_HEADS:
     NAME: "CompressiveDecoderHead"
     IN_FEATURES: ["cae_encoder_top"]
+VIS_PERIOD: 500
 DATASETS:
   TRAIN: ("voc_2012_train",)
-  TEST: ("kodak_test",)
   # TRAIN: ("coco_2017_train",)
+
+  TEST: ("kodak_test",)
   #  TEST: ("coco_2017_val",)
 TEST:
   EVAL_PERIOD: 100
 SOLVER:
   IMS_PER_BATCH: 16
-  BASE_LR: 0.02
+  BASE_LR: 0.0002
   STEPS: (60000, 80000)
   MAX_ITER: 90000
 INPUT:

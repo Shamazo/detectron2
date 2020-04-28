@@ -10,15 +10,15 @@ class Encoder(nn.Module):
     original image and compress it into a vector.
     """
 
-    def __init__(self, quantize=True):
+    def __init__(self, quantize=True, interior_dim=128):
         super().__init__()
 
         self.op_1: nn.Sequential = TheisConv(stride=2)
-        self.op_2: nn.Sequential = TheisConv(stride=2, input=64, out=128)
+        self.op_2: nn.Sequential = TheisConv(stride=2, input=64, out=interior_dim)
         self.op_3: nn.Sequential = TheisResidual()
         self.op_4: nn.Sequential = TheisResidual()
         self.op_5: nn.Sequential = TheisResidual()
-        self.op_6: nn.Sequential = TheisConv(stride=2, input=128, out=96)
+        self.op_6: nn.Sequential = TheisConv(stride=2, input=interior_dim, out=96)
 
         self.quantize = TheisRounding.apply if quantize else (lambda x: x)
 
@@ -44,7 +44,7 @@ class CompressiveEncoderBackbone(Backbone):
         self.name = cfg.MODEL.THEIS_CAE.OUT_FEATURE
         self.patched = cfg.MODEL.THEIS_CAE.PATCHED
         self.enc = Encoder()
-        self._size_divisibility = 128  # this is needed to fix some image errors
+        self._size_divisibility = cfg.MODEL.THEIS_CAE.EDGE_LENGTH  # this is needed to fix some image errors
 
     @property
     def size_divisibility(self):
@@ -60,4 +60,5 @@ class CompressiveEncoderBackbone(Backbone):
         return {self.name: out}
 
     def output_shape(self):
-        return {self.name: ShapeSpec(stride=8, channels=96, height=16, width=16)}
+        interior_side = self._size_divisibility / 8
+        return {self.name: ShapeSpec(stride=8, channels=96, height=interior_side, width=interior_side)}
