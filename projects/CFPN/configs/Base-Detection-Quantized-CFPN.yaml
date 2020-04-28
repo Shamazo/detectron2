@@ -1,0 +1,73 @@
+MODEL:
+  DEVICE: 'cuda:0'
+  META_ARCHITECTURE: "CFPN"
+  BACKBONE:
+    NAME: "QFPN"
+    FREEZE_AT: 0
+  RPN:
+    IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
+    PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
+    PRE_NMS_TOPK_TEST: 1000  # Per FPN level
+    # Detectron1 uses 2000 proposals per-batch,
+    # (See "modeling/rpn/rpn_outputs.py" for details of this legacy issue)
+    # which is approximately 1000 proposals per-image since the default batch size for FPN is 2.
+    POST_NMS_TOPK_TRAIN: 1000
+    POST_NMS_TOPK_TEST: 1000
+  ROI_HEADS:
+    NAME: "StandardROIHeads"
+    IN_FEATURES: ["p2", "p3", "p4", "p5"]
+  ROI_BOX_HEAD:
+    NAME: "FastRCNNConvFCHead"
+    NUM_FC: 2
+    POOLER_RESOLUTION: 7
+  ROI_MASK_HEAD:
+    NAME: "MaskRCNNConvUpsampleHead"
+    NUM_CONV: 4
+    POOLER_RESOLUTION: 14
+  QUANTIZER_ON: True
+  QUANTIZER:
+    FEAT_WEIGHTS: [1000, 500, 500, 300]
+    NAME: "GSM"
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+  RESNETS:
+    OUT_FEATURES: ["res2", "res3", "res4", "res5"]
+    DEPTH: 50
+  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  FPN:
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    OUT_CHANNELS: 256
+  RECONSTRUCT_HEADS_ON: True
+  RECONSTRUCT_HEADS:
+    LOSS_WEIGHTS: [1, 1, 1, 1]
+    NAME: "MLResidualHead"
+    IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
+    IN_CHANNELS: 256 # must match FPN out_channels
+DATASETS:
+  TRAIN: ("coco_2017_train",)
+  TEST: ("kodak_test",)
+DATALOADER:
+  NUM_WORKERS: 8
+SOLVER:
+  IMS_PER_BATCH: 2
+  WARMUP_FACTOR: 0.0001
+  WARMUP_ITERS: 2000
+  BASE_LR: 0.0002
+  STEPS: (60000, 80000)
+  MAX_ITER: 120000
+TEST:
+  EVAL_PERIOD: 10
+VIS_PERIOD: 200
+INPUT:
+   FORMAT: "BGR"
+   MIN_SIZE_TRAIN: (512,)
+   MAX_SIZE_TRAIN: 512
+   MIN_SIZE_TRAIN_SAMPLING: 'choice'
+   MIN_SIZE_TEST: 512
+   MAX_SIZE_TEST: 512
+VERSION: 2
+
+
+
+
+
+

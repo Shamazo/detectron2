@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.1-cudnn7-devel
+FROM nvidia/cuda:10.2-cudnn7-devel
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y \
@@ -22,12 +22,11 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
 # install dependencies
 # See https://pytorch.org/ for other options if you use a different version of CUDA
 RUN pip install --user tensorboard cython
-RUN pip install --user torch==1.5+cu101 torchvision==0.6+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip install torch torchvision
 RUN pip install --user 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
-
 RUN pip install --user 'git+https://github.com/facebookresearch/fvcore'
 # install detectron2
-#RUN git clone https://github.com/Shamazo/detectron2 detectron2_repo
+#ADD / /home/appuser/detectron2
 
 # set FORCE_CUDA because during `docker build` cuda is not accessible
 ENV FORCE_CUDA="1"
@@ -35,15 +34,17 @@ ENV FORCE_CUDA="1"
 # because inside `docker build`, there is no way to tell which architecture will be used.
 ARG TORCH_CUDA_ARCH_LIST="Turing"
 ENV TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
-
-RUN pip install --user -e detectron2_repo
+WORKDIR /home/appuser
+#RUN pip install --user -e detectron2
 RUN pip install opencv-python
 RUN pip install pytorch_msssim
+RUN pip install range-coder
 
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"
-WORKDIR /home/appuser/detectron2_repo
+WORKDIR /home/appuser
 
+ENTRYPOINT /bin/bash
 # run detectron2 under user "appuser":
 # wget http://images.cocodataset.org/val2017/000000439715.jpg -O input.jpg
 # python3 demo/demo.py  \

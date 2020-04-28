@@ -8,11 +8,13 @@ import cv2
 from detectron2.structures import ImageList
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.logger import log_first_n
-
+from detectron2.config import CfgNode
 from detectron2.modeling.backbone import build_backbone, build_resnet_backbone
 from detectron2.modeling.backbone.fpn import LastLevelMaxPool
 from detectron2.modeling.meta_arch import META_ARCH_REGISTRY
 from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
+from detectron2.modeling.meta_arch import GeneralizedRCNN
+
 
 from ..reconstruct_heads import build_reconstruct_heads
 from ..quantization import build_quantizer
@@ -127,25 +129,14 @@ class QFPN(FPN):
 
 
 @META_ARCH_REGISTRY.register()
-class CFPN(nn.Module):
+class CFPN(GeneralizedRCNN):
     """
     Compressive Feature Pyramid Network
     """
 
-    def __init__(self, cfg):
-        super().__init__()
-
-        self.device = torch.device(cfg.MODEL.DEVICE)
-        self.backbone = build_backbone(cfg).to(self.device)
+    def __init__(self, cfg: CfgNode):
+        super(CFPN, self).__init__(cfg)
         self.reconstruct_heads = build_reconstruct_heads(cfg, self.backbone.output_shape()).to(self.device)
-        self.input_format = cfg.INPUT.FORMAT
-        self.vis_period = cfg.VIS_PERIOD
-        assert len(cfg.MODEL.PIXEL_MEAN) == len(cfg.MODEL.PIXEL_STD)
-        num_channels = len(cfg.MODEL.PIXEL_MEAN)
-        pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(self.device).view(num_channels, 1, 1)
-        pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(self.device).view(num_channels, 1, 1)
-        self.normalizer = lambda x: (x - pixel_mean) / pixel_std
-        self.to(self.device)
 
     def forward(self, batched_inputs):
         """
@@ -177,14 +168,35 @@ class CFPN(nn.Module):
         else:
             quantization_losses = {}
 
+        if "instances" in batched_inputs[0]:
+            gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+        elif "targets" in batched_inputs[0]:
+            log_first_n(
+                logging.WARN, "'targets' in the model inputs is now renamed to 'instances'!", n=10
+            )
+            gt_instances = [x["targets"].to(self.device) for x in batched_inputs]
+        else:
+            gt_instances = None
+
+        if self.proposal_generator:
+            proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+        else:
+            assert "proposals" in batched_inputs[0]
+            proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+            proposal_losses = {}
+
+        _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
         reconstructed_images, reconstruction_losses = self.reconstruct_heads(images, features)
 
         if self.vis_period > 0:
             storage = get_event_storage()
             if storage.iter % self.vis_period == 0:
-                 self.visualize_training(reconstructed_images, images)
+                self.visualize_training(reconstructed_images, images, batched_inputs, proposals)
 
-        comb_losses = {**reconstruction_losses, **quantization_losses}
+        comb_losses = {}
+        comb_losses.update(detector_losses)
+        comb_losses.update(proposal_losses)
+        comb_losses.update(reconstruction_losses)
         return comb_losses
 
     def inference(self, batched_inputs):
@@ -209,7 +221,10 @@ class CFPN(nn.Module):
             reconstructed_images[feat] = features[feat]
         return reconstructed_images
 
-    def visualize_training(self, reconstructed_images, images):
+    def visualize_training(self, reconstructed_images, images, batched_inputs, proposals):
+        from detectron2.utils.visualizer import Visualizer
+
+        # vis reconstruction
         storage = get_event_storage()
         orig_img = images.tensor[0].detach().cpu().numpy()
         if self.input_format == "BGR":
@@ -231,6 +246,30 @@ class CFPN(nn.Module):
             vis_img = vis_img.transpose(2, 0, 1)
             vis_name = "{} ;Left: GT image;  Right: reconstructed image".format(key)
             storage.put_image(vis_name, vis_img) #takes in c,h,w images
+
+        # vis detection
+        max_vis_prop = 20
+        for input, prop in zip(batched_inputs, proposals):
+            img = input["image"].cpu().numpy()
+            assert img.shape[0] == 3, "Images should have 3 channels."
+            if self.input_format == "BGR":
+                img = img[::-1, :, :]
+            img = img.transpose(1, 2, 0)
+            v_gt = Visualizer(img, None)
+            v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
+            anno_img = v_gt.get_image()
+            box_size = min(len(prop.proposal_boxes), max_vis_prop)
+            v_pred = Visualizer(img, None)
+            v_pred = v_pred.overlay_instances(
+                boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
+            )
+            prop_img = v_pred.get_image()
+            vis_img = np.concatenate((anno_img, prop_img), axis=1)
+            vis_img = vis_img.transpose(2, 0, 1)
+            vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
+            storage.put_image(vis_name, vis_img)
+            break  # only visualize one image in a batch
+
         return
 
     def preprocess_image(self, batched_inputs, norm=True):

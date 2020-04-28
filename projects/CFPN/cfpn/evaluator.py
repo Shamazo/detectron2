@@ -9,6 +9,7 @@ from typing import List
 import numpy as np
 import range_coder as rc
 import os
+import copy
 
 
 class ReconstructionEvaluator(DatasetEvaluator):
@@ -75,6 +76,8 @@ class CompressionEvaluator(DatasetEvaluator):
         assert dataset_name == 'kodak_test', "Can only evaluate compression \
                 on kodak_test not on {}".format(dataset_name)
         # TODO use same images for min value and cdf calc
+        val_cfg = copy.deepcopy(cfg)
+        coco_2014_minival
         self.train_loader = iter(build_detection_train_loader(cfg))
         self.test_codes = defaultdict(list)
         self.model = model.eval()

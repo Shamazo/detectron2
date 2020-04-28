@@ -2,7 +2,7 @@ _BASE_: "Base-Quantized-CFPN.yaml"
 MODEL:
   DEVICE: 'cuda:0'
   QUANTIZER:
-    FEAT_WEIGHTS: [50, 50, 50, 50]
+    FEAT_WEIGHTS: [1000, 500, 500, 300]
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
     OUT_CHANNELS: 256
