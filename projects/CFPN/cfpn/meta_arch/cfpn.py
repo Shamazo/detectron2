@@ -41,7 +41,10 @@ class QFPN(FPN):
             fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
         )
         input_shapes = bottom_up.output_shape()
-        self.quantizer = build_quantizer(cfg, input_shapes)
+        if cfg.MODEL.QUANTIZER_ON:
+            self.quantizer = build_quantizer(cfg, input_shapes)
+        else:
+            self.quantizer = None
 
     def forward(self, x):
         """
@@ -61,7 +64,11 @@ class QFPN(FPN):
         # Reverse feature maps into top-down order (from low to high resolution)
         bottom_up_features = self.bottom_up(x)
         # quantize the bottom up features
-        bottom_up_features, quantization_losses = self.quantizer(bottom_up_features)
+        if self.quantizer:
+            bottom_up_features, quantization_losses = self.quantizer(bottom_up_features)
+        else:
+            quantization_losses = dict()
+
         x = [bottom_up_features[f] for f in self.in_features[::-1]]
         results = []
         prev_features = self.lateral_convs[0](x[0])
@@ -101,7 +108,8 @@ class QFPN(FPN):
         # Reverse feature maps into top-down order (from low to high resolution)
         bottom_up_features = self.bottom_up(x)
         # quantize the bottom up features
-        bottom_up_features, quantization_losses = self.quantizer(bottom_up_features)
+        if self.quantizer:
+            bottom_up_features, _ = self.quantizer(bottom_up_features)
         x = [bottom_up_features[f] for f in self.in_features[::-1]]
         results = []
         prev_features = self.lateral_convs[0](x[0])
@@ -193,20 +201,26 @@ class CFPN(GeneralizedRCNN):
             if storage.iter % self.vis_period == 0:
                 self.visualize_training(reconstructed_images, images, batched_inputs, proposals)
 
+                self.backbone.quantizer.visualize()
+                # except:
+                #     pass
+
+
         comb_losses = {}
         comb_losses.update(detector_losses)
         comb_losses.update(proposal_losses)
         comb_losses.update(reconstruction_losses)
+        comb_losses.update(quantization_losses)
         return comb_losses
 
-    def inference(self, batched_inputs):
+    def inference(self, batched_inputs, detected_instances=None, do_postprocess=True):
         """
         Run inference on the given inputs.
 
         Args:
             batched_inputs (list[dict]): same as in :meth:`forward`
         Returns:
-            Dict[str->tensor] mapping output image names to the tensor in n,c,h,w format
+            List[Dict[str->tensor]] mapping output image names to the tensor in 1,c,h,w format for each input
         """
         assert not self.training
 
@@ -217,9 +231,30 @@ class CFPN(GeneralizedRCNN):
             features, _ = features
         reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
         # add the codes to the output dict
+        codes = []
+        #only works for inference with bs = 1
         for feat in self.backbone.in_features:
-            reconstructed_images[feat] = features[feat]
-        return reconstructed_images
+            reconstructed_images[feat] = features[feat].flatten()
+
+        if detected_instances is None:
+            if self.proposal_generator:
+                proposals, _ = self.proposal_generator(images, features, None)
+            else:
+                assert "proposals" in batched_inputs[0]
+                proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+
+            results, _ = self.roi_heads(images, features, proposals, None)
+        else:
+            detected_instances = [x.to(self.device) for x in detected_instances]
+            results = self.roi_heads.forward_with_given_boxes(features, detected_instances)
+
+        if do_postprocess:
+            results = GeneralizedRCNN._postprocess(results, batched_inputs, images.image_sizes)
+        else:
+            return results
+
+        results[0].update(reconstructed_images)
+        return results
 
     def visualize_training(self, reconstructed_images, images, batched_inputs, proposals):
         from detectron2.utils.visualizer import Visualizer
@@ -241,7 +276,6 @@ class CFPN(GeneralizedRCNN):
             t_orig_img = orig_img.transpose(1, 2, 0).astype("uint8")
             ds_orig_img = cv2.resize(t_orig_img, dsize=(height, width), interpolation=cv2.INTER_NEAREST)
             recon_img = recon_img.transpose(1, 2, 0).astype("uint8")
-            # print(ds_orig_img.shape, recon_img.shape)
             vis_img = np.concatenate((ds_orig_img, recon_img), axis=1)
             vis_img = vis_img.transpose(2, 0, 1)
             vis_name = "{} ;Left: GT image;  Right: reconstructed image".format(key)
@@ -278,9 +312,8 @@ class CFPN(GeneralizedRCNN):
         """
         images = [x["image"].to(self.device) for x in batched_inputs]
         if norm:
-            images = [self.normalizer(x) for x in images]
+            images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, 512)
-        images = images.to(self.device)
         return images
 
 

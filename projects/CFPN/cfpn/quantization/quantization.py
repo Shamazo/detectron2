@@ -61,6 +61,13 @@ class Quantizer(torch.nn.Module):
         """
         raise NotImplementedError()
 
+    def visualize(self):
+        """
+            Optionally visualize aspects of the quantization in tensorboard
+        :return:
+        """
+        return
+
 
 
 class TheisRounding(torch.autograd.Function):
@@ -145,5 +152,13 @@ class GSM(Quantizer):
 
         return outputs, []
 
+    def visualize(self):
+        # storage = get_event_storage()
+        # for feat in self.in_features:
+        #     variance = self.params[feat]['variance']
+        #     for s in range(self.s):
+        #         print(variance[:, :, :, :, s].mean())
+        #         storage.put_scalar("{} scale {} mean variance".format(feat, s), variance[:, :, :, :, s].mean())
+        return
 
 

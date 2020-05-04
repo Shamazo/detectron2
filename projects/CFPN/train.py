@@ -57,8 +57,8 @@ class Trainer(DefaultTrainer):
             evaluators = []
         if cfg.MODEL.RECONSTRUCT_HEADS_ON and dataset_name == 'kodak_test':
             evaluators.append(ReconstructionEvaluator(dataset_name, output_folder, eval_img=eval_img))
-        # if cfg.MODEL.QUANTIZER_ON and dataset_name == 'kodak_test':
-        #     evaluators.append(CompressionEvaluator(cfg, dataset_name, model=model))
+        if cfg.MODEL.QUANTIZER_ON:
+            evaluators.append(CompressionEvaluator(cfg, dataset_name, model=model))
         return DatasetEvaluators(evaluators)
 
     @classmethod
@@ -120,7 +120,7 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('/home/appuser/detectron2/projects/CFPN/configs/Base-Detection-Quantized-CFPN.yaml')
+    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/Base-Detection-Quantized-CFPN.yaml')
     # cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()
@@ -136,4 +136,4 @@ if __name__ == "__main__":
     trainer.train()
 
 # docker run --gpus 1 -it  --shm-size=8gb --env="DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-# --name=detectron2 --mount type=bind,source=/home/hamish/detectron2,target=/home/appuser/detectron2 --mount type=bind,source=/home/hamish/datasets,target=/home/appuser/datasets detectron2:v0
+# --name=detectron2 --mount type=bind,source=/home/hamish/detectron2,target=/home/appuser/detectron2 --mount type=bind,source=/home/hamish/datasets,target=/home/appuser/datasets -rm detectron2:v0
