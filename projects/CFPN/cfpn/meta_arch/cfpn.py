@@ -44,7 +44,7 @@ class QFPN(FPN):
     def forward(self, x):
         """
         Args:
-            input (dict[str->Tensor]): mapping feature map name (e.g., "res5") to
+            x (dict[str->Tensor]): mapping feature map name (e.g., "res5") to
                 feature map tensor for each feature level in high to low resolution order.
 
         Returns:
@@ -54,6 +54,8 @@ class QFPN(FPN):
                 paper convention: "p<stage>", where stage has stride = 2 ** stage e.g.,
                 ["p2", "p3", ..., "p6"].
         """
+        if not self.training:
+            return self.inference(x)
         # Reverse feature maps into top-down order (from low to high resolution)
         bottom_up_features = self.bottom_up(x)
         # quantize the bottom up features
@@ -80,35 +82,7 @@ class QFPN(FPN):
         assert len(self._out_features) == len(results)
         return dict(zip(self._out_features, results)), quantization_losses
 
-#qfpn which subclasses fpn
-
-#build resnet backbone but make it qfpn
-
-
-
-
-
-@BACKBONE_REGISTRY.register()
-class QFPN(FPN):
-    """
-    A quantized feature pyramid network, the lateral inputs are quantized
-    """
-    def __init__(self, cfg, input_shape):
-        bottom_up = build_resnet_backbone(cfg, input_shape)
-        in_features = cfg.MODEL.FPN.IN_FEATURES
-        out_channels = cfg.MODEL.FPN.OUT_CHANNELS
-        super().__init__(
-            bottom_up=bottom_up,
-            in_features=in_features,
-            out_channels=out_channels,
-            norm=cfg.MODEL.FPN.NORM,
-            top_block=LastLevelMaxPool(),
-            fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
-        )
-        input_shapes = bottom_up.output_shape()
-        self.quantizer = build_quantizer(cfg, input_shapes)
-
-    def forward(self, x):
+    def inference(self, x):
         """
         Args:
             input (dict[str->Tensor]): mapping feature map name (e.g., "res5") to
@@ -121,6 +95,7 @@ class QFPN(FPN):
                 paper convention: "p<stage>", where stage has stride = 2 ** stage e.g.,
                 ["p2", "p3", ..., "p6"].
         """
+        assert not self.training
         # Reverse feature maps into top-down order (from low to high resolution)
         bottom_up_features = self.bottom_up(x)
         # quantize the bottom up features
@@ -145,11 +120,10 @@ class QFPN(FPN):
                 top_block_in_feature = results[self._out_features.index(self.top_block.in_feature)]
             results.extend(self.top_block(top_block_in_feature))
         assert len(self._out_features) == len(results)
-        return dict(zip(self._out_features, results)), quantization_losses
-
-#qfpn which subclasses fpn
-
-#build resnet backbone but make it qfpn
+        out_dict = dict(zip(self._out_features, results))
+        for f in self.in_features:
+            out_dict[f] = bottom_up_features[f]
+        return out_dict, []
 
 
 @META_ARCH_REGISTRY.register()
@@ -163,7 +137,6 @@ class CFPN(nn.Module):
 
         self.device = torch.device(cfg.MODEL.DEVICE)
         self.backbone = build_backbone(cfg).to(self.device)
-        print(self.backbone)
         self.reconstruct_heads = build_reconstruct_heads(cfg, self.backbone.output_shape()).to(self.device)
         self.input_format = cfg.INPUT.FORMAT
         self.vis_period = cfg.VIS_PERIOD
@@ -173,7 +146,6 @@ class CFPN(nn.Module):
         pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(self.device).view(num_channels, 1, 1)
         self.normalizer = lambda x: (x - pixel_mean) / pixel_std
         self.to(self.device)
-
 
     def forward(self, batched_inputs):
         """
@@ -198,7 +170,7 @@ class CFPN(nn.Module):
 
         normed_images = self.preprocess_image(batched_inputs)
         images = self.preprocess_image(batched_inputs, norm=False)
-
+        self.backbone.train()
         features = self.backbone(normed_images.tensor)
         if isinstance(features, tuple): # if using quantization the backbone returns features, losses
             features, quantization_losses = features
@@ -226,16 +198,15 @@ class CFPN(nn.Module):
         """
         assert not self.training
 
-        images = self.preprocess_image(batched_inputs)
-        features = self.backbone(images.tensor.float())
-<<<<<<< HEAD:projects/CFPN/cfpn/meta_arch/cfpn.py
+        normed_images = self.preprocess_image(batched_inputs)
+        images = self.preprocess_image(batched_inputs, norm=False)
+        features = self.backbone(normed_images.tensor)
         if isinstance(features, tuple):  # if using quantization the backbone returns features, losses
-=======
-        if isinstance(features, tuple): #if using quantization the backbone returns features, losses
->>>>>>> 35d962dcd22060d119a3a5b2381ceb6873e6ffca:projects/CFPN/cfpn/cfpn.py
             features, _ = features
-
         reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
+        # add the codes to the output dict
+        for feat in self.backbone.in_features:
+            reconstructed_images[feat] = features[feat]
         return reconstructed_images
 
     def visualize_training(self, reconstructed_images, images):

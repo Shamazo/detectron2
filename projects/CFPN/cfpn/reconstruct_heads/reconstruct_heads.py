@@ -359,9 +359,9 @@ class MLResidualHead(ReconstructHeads):
                 x[1:], self.reconstruct_convs[1:], self.output_convs[1:],
                 self.stages[1:], self.loss_weights[::-1]
         ):
-            top_down_features = F.interpolate(prev_features, scale_factor=2, mode="nearest")
+            top_down_recon_features = F.interpolate(prev_features, scale_factor=2, mode="nearest")
             lateral_features = reconstruct_conv(features)
-            prev_features = lateral_features + top_down_features
+            prev_features = lateral_features + top_down_recon_features
             if self._fuse_type == "avg":
                 prev_features /= 2
             reconstructed_images = self.clip.apply(output_conv(prev_features))

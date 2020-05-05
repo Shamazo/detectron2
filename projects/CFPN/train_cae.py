@@ -6,7 +6,7 @@ from detectron2.utils.logger import setup_logger
 import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, PascalVOCDetectionEvaluator
 
-from cfpn.evaluator import CompressionEvaluator
+from cfpn.evaluator import ReconstructionEvaluator
 from cfpn.datasets.kodak import download_kodak, register_kodak
 from cfpn.meta_arch import RCNNwithReconstruction
 
@@ -17,6 +17,9 @@ def add_theis_config(cfg):
     _C.MODEL.THEIS_CAE = CN()
     _C.MODEL.THEIS_CAE.OUT_FEATURE = "cae_encoder_top"
     _C.MODEL.THEIS_CAE.PATCHED  = False
+    _C.MODEL.THEIS_CAE.EDGE_LENGTH  = 128
+    _C.MODEL.THEIS_CAE.INTERIOR_DIM = 128
+
 
     _C.MODEL.RECONSTRUCT_HEADS = CN()
     _C.MODEL.RECONSTRUCT_HEADS_ON = False
@@ -31,12 +34,13 @@ class Trainer(DefaultTrainer):
     def build_evaluator(cls, cfg_arg: CfgNode, dataset_name):
         output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
         eval_img = cfg.TEST.TEST_IMAGES[0]
-        if dataset_name != 'kodak_test':
-            evaluators = [COCOEvaluator(dataset_name, cfg_arg, True)]
-        else:
-            evaluators = []
+        evaluators = []
+        # if dataset_name != 'kodak_test':
+        #     evaluators = [COCOEvaluator(dataset_name, cfg_arg, True)]
+        # else:
+        #     evaluators = []
         if cfg.MODEL.RECONSTRUCT_HEADS_ON and dataset_name == 'kodak_test':
-            evaluators.append(CompressionEvaluator(dataset_name, output_folder, eval_img=eval_img))
+            evaluators.append(ReconstructionEvaluator(dataset_name, output_folder, eval_img=eval_img))
         return DatasetEvaluators(evaluators)
 
 
@@ -55,4 +59,5 @@ def setup(args):
 if __name__ == "__main__":
     cfg = setup([])
     trainer = Trainer(cfg)
+    trainer.resume_or_load(resume=True)
     trainer.train()
