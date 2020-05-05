@@ -4,6 +4,7 @@ from detectron2.modeling import BACKBONE_REGISTRY, Backbone, ShapeSpec
 
 from ..util import PatchUtil
 from ..layers import (TheisRounding, TheisConv, TheisResidual)
+from cResNet import cresnet
 
 class Encoder(nn.Module):
     """The Encoder module will take in 128x128x3 ('width'x'height'x'channel') patches from the
@@ -35,6 +36,7 @@ class Encoder(nn.Module):
         z = self.quantize(z)  # quantization trick
         return z
 
+'''
 @BACKBONE_REGISTRY.register()
 class CompressiveInferenceBackbone(Backbone):
     def __init__(self, cfg, input_shape: ShapeSpec):
@@ -58,6 +60,32 @@ class CompressiveInferenceBackbone(Backbone):
         if self.patched:
             out = PatchUtil.reconstruct_from_batched_patches(out, patch_x=patch_x, patch_y=patch_y)
         return {self.name: out}
+
+    def output_shape(self):
+        return {self.name: ShapeSpec(stride=8, channels=96, height=16, width=16)}
+'''
+
+@BACKBONE_REGISTRY.register()
+class CompressiveInferenceBackbone_cii(Backbone):
+    def __init__(self, cfg, input_shape: ShapeSpec):
+        super(CompressiveEncoderBackbone, self).__init__()
+        assert input_shape.height == input_shape.width and "Width must be equal to height for Theis CAE."
+        assert not input_shape.width or input_shape.width == 512 and "Either no width or the width is 128"
+        self.name_cae = cfg.MODEL.THEIS_CAE.OUT_FEATURE
+        self.name_res = cfg.MODEL.CRES.OUT_FEATURE
+        self.enc = Encoder()
+        self.res = cresnet()
+        self._size_divisibility = 512  # this is needed to fix some image errors
+
+    @property
+    def size_divisibility(self):
+        return self._size_divisibility
+
+
+    def forward(self, image: torch.Tensor):
+        encoding = self.enc(image)
+        out = self.res(encoding)
+        return {self.name_cae: out, }
 
     def output_shape(self):
         return {self.name: ShapeSpec(stride=8, channels=96, height=16, width=16)}
