@@ -4,7 +4,9 @@ from detectron2.modeling import BACKBONE_REGISTRY, Backbone, ShapeSpec
 
 from ..util import PatchUtil
 from ..layers import (TheisRounding, TheisConv, TheisResidual)
+from cResNet import cresnet
 
+#'''
 class Encoder(nn.Module):
     """The Encoder module will take in 128x128x3 ('width'x'height'x'channel') patches from the
     original image and compress it into a vector.
@@ -18,7 +20,7 @@ class Encoder(nn.Module):
         self.op_3: nn.Sequential = TheisResidual()
         self.op_4: nn.Sequential = TheisResidual()
         self.op_5: nn.Sequential = TheisResidual()
-        self.op_6: nn.Sequential = TheisConv(stride=2, input=interior_dim, out=96)
+        self.op_6: nn.Sequential = TheisConv(stride=2, input=interior_dim, out=64)
 
         self.quantize = TheisRounding.apply if quantize else (lambda x: x)
 
@@ -34,9 +36,11 @@ class Encoder(nn.Module):
 
         z = self.quantize(z)  # quantization trick
         return z
+#'''
 
+#'''
 @BACKBONE_REGISTRY.register()
-class CompressiveEncoderBackbone(Backbone):
+class CompressiveInferenceBackbone(Backbone):
     def __init__(self, cfg, input_shape: ShapeSpec):
         super(CompressiveEncoderBackbone, self).__init__()
         assert input_shape.height == input_shape.width and "Width must be equal to height for Theis CAE."
@@ -44,7 +48,7 @@ class CompressiveEncoderBackbone(Backbone):
         self.name = cfg.MODEL.THEIS_CAE.OUT_FEATURE
         self.patched = cfg.MODEL.THEIS_CAE.PATCHED
         self.enc = Encoder()
-        self._size_divisibility = cfg.MODEL.THEIS_CAE.EDGE_LENGTH  # this is needed to fix some image errors
+        self._size_divisibility = 128  # this is needed to fix some image errors
 
     @property
     def size_divisibility(self):
@@ -60,5 +64,32 @@ class CompressiveEncoderBackbone(Backbone):
         return {self.name: out}
 
     def output_shape(self):
+        return {self.name: ShapeSpec(stride=8, channels=96, height=16, width=16)}
+#'''
+
+@BACKBONE_REGISTRY.register()
+class CompressiveResNetBackbone(Backbone):
+    def __init__(self, cfg, input_shape: ShapeSpec):
+        super(CompressiveResNetBackbone, self).__init__()
+        assert input_shape.height == input_shape.width and "Width must be equal to height for CII."
+        assert not input_shape.width or input_shape.width == 512 and "Either no width or the width is 512"
+        self.name_cae = cfg.MODEL.THEIS_CAE.OUT_FEATURE
+        self.name_res = cfg.MODEL.CRES.OUT_FEATURE
+        self.enc = Encoder()
+        self.res = cresnet()
+        self._size_divisibility = 512  # this is needed to fix some image errors
+
+    @property
+    def size_divisibility(self):
+        return self._size_divisibility
+
+
+    def forward(self, image: torch.Tensor):
+        encoding = self.enc(image)
+        out = self.res(encoding)
+        return {self.name_cae: encoding, self.name_res: out}
+
+    def output_shape(self):
         interior_side = self._size_divisibility / 8
-        return {self.name: ShapeSpec(stride=8, channels=96, height=interior_side, width=interior_side)}
+        return {self.name_cae: ShapeSpec(stride=8, channels=96, height=interior_side, width=interior_side), 
+                self.name_res: ShapeSpec(stride=2, channels=512, height=interior_side, width=interior_side)}

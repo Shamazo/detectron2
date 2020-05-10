@@ -15,21 +15,21 @@ def download_kodak(root=None):
 
     """
     if root is None:
-        root = os.getenv("DETECTRON2_DATASETS", "datasets")
+        root = os.getenv("DETECTRON2_DATASETS", "./datasets")
     save_dir = os.path.join(root, "kodak")
     if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
+        os.makedirs(save_dir)
     count = 0
     for im in range(1, 25):
-        save_name = str(im) + '.png'
+        save_name = str(im) + ".png"
         save_path = os.path.join(save_dir, save_name)
         if not os.path.exists(save_path):
             if im < 10:
-                im_url = 'http://r0k.us/graphics/kodak/kodak/kodim0' + str(im) + '.png'
+                im_url = "http://r0k.us/graphics/kodak/kodak/kodim0" + str(im) + ".png"
             else:
-                im_url = 'http://r0k.us/graphics/kodak/kodak/kodim' + str(im) + '.png'
+                im_url = "http://r0k.us/graphics/kodak/kodak/kodim" + str(im) + ".png"
             try:
-                urllib.request.urlretrieve(im_url, save_path)
+                print(urllib.request.urlretrieve(im_url, save_path))
                 count += 1
             except:
                 print("Failed to download: {}".format(im_url))

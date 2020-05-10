@@ -1,4 +1,8 @@
 import os
+import sys
+py_dll_path = os.path.join(sys.exec_prefix, 'Library', 'bin')
+os.environ['PATH'] += py_dll_path
+
 from detectron2.config import CfgNode, get_cfg
 from detectron2.engine import SimpleTrainer, HookBase, default_setup, DefaultTrainer
 from detectron2.config import CfgNode as CN

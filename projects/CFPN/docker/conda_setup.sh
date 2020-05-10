@@ -1,4 +1,4 @@
-#conda create --name CFPN python=3.6
+#conda create --name CFPN python=3.7
 #conda activate CFPN
 
 sudo apt-get update
@@ -7,6 +7,6 @@ conda install pytorch==1.4.0
 pip install git+git://github.com/Shamazo/detectron2
 conda install opencv wget unzip -y
 
-pip install opencv-python pytorch_msssim 
+pip install opencv-python pytorch_msssim range_coder
 pip install -e 'git+https://github.com/ahundt/cocoapi.git#egg=pycocotools&subdirectory=PythonAPI'
 pip install numpy==1.17
