@@ -1,0 +1,51 @@
+MODEL:
+  META_ARCHITECTURE: "RCNNwithReconstruction"
+  BACKBONE:
+    NAME: "CompressiveResNetBackbone"
+    FREEZE_AT: 0
+  THEIS_CAE:
+    OUT_FEATURE: "cae_encoder_top"
+    PATCHED: False
+    EDGE_LENGTH: 512
+    INTERIOR_DIM: 128
+  CRES:
+    OUT_FEATURE: "cres_top"
+  RPN:
+    IN_FEATURES: ["cres_top"]
+    PRE_NMS_TOPK_TEST: 6000
+    POST_NMS_TOPK_TEST: 1000
+  ROI_HEADS:
+    NAME: "StandardROIHeads"
+    IN_FEATURES: ["cae_encoder_top"]
+  ROI_BOX_HEAD:
+    NAME: "FastRCNNConvFCHead"
+    NUM_FC: 2
+    POOLER_RESOLUTION: 7
+  ROI_MASK_HEAD:
+    NAME: "MaskRCNNConvUpsampleHead"
+    NUM_CONV: 4
+    POOLER_RESOLUTION: 14
+  RECONSTRUCT_HEADS_ON: True
+  RECONSTRUCT_HEADS:
+    NAME: "CompressiveDecoderHead_cres"
+    IN_FEATURES: ["cae_encoder_top"]
+VIS_PERIOD: 500
+DATASETS:
+  #TRAIN: ("voc_2012_train",)
+  TRAIN: ("coco_2017_train",)
+
+  #TEST: ("kodak_test",)
+  TEST: ("coco_2017_val",)
+TEST:
+  EVAL_PERIOD: 100
+SOLVER:
+  IMS_PER_BATCH: 16
+  BASE_LR: 0.0002
+  STEPS: (60000, 80000)
+  MAX_ITER: 90000
+INPUT:
+  MIN_SIZE_TRAIN: (512,)
+  MAX_SIZE_TRAIN: 512
+  MIN_SIZE_TEST: 512
+  MAX_SIZE_TEST: 512
+VERSION: 2
