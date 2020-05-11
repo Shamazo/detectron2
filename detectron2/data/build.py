@@ -334,7 +334,7 @@ def build_detection_train_loader(cfg, mapper=None):
             num_workers=cfg.DATALOADER.NUM_WORKERS,
             batch_sampler=batch_sampler,
             collate_fn=trivial_batch_collator,
-            worker_init_fn=worker_init_reset_seed,
+            worker_init_fn=worker_init_reset_seed
         )
 
     return data_loader

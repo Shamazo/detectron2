@@ -4,6 +4,7 @@ MODEL:
   BACKBONE:
     NAME: "QFPN"
     FREEZE_AT: 0
+  DETECTION_ON: False
   RPN:
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
     PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
@@ -26,7 +27,7 @@ MODEL:
     POOLER_RESOLUTION: 14
   QUANTIZER_ON: True
   QUANTIZER:
-    FEAT_WEIGHTS: [1000, 500, 500, 300]
+    FEAT_WEIGHTS: [10, 10, 10, 10]
     NAME: "GSM"
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
   RESNETS:
@@ -35,27 +36,27 @@ MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
-    OUT_CHANNELS: 256
+    OUT_CHANNELS: 512
   RECONSTRUCT_HEADS_ON: True
   RECONSTRUCT_HEADS:
     LOSS_WEIGHTS: [1, 1, 1, 1]
     NAME: "MLResidualHead"
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
-    IN_CHANNELS: 256 # must match FPN out_channels
+    IN_CHANNELS: 512 # must match FPN out_channels
 DATASETS:
-  TRAIN: ("coco_2017_train",)
+  TRAIN: ("voc_2012_train",)
   TEST: ("kodak_test",)
 DATALOADER:
-  NUM_WORKERS: 8
+  NUM_WORKERS: 10
 SOLVER:
   IMS_PER_BATCH: 2
   WARMUP_FACTOR: 0.0001
   WARMUP_ITERS: 2000
   BASE_LR: 0.0002
-  STEPS: (60000, 80000)
-  MAX_ITER: 120000
+  STEPS: (120000, 160000)
+  MAX_ITER: 180000
 TEST:
-  EVAL_PERIOD: 10
+  EVAL_PERIOD: 3000
 VIS_PERIOD: 200
 INPUT:
    FORMAT: "BGR"

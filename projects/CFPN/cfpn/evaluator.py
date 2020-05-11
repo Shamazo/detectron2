@@ -111,7 +111,7 @@ class CompressionEvaluator(DatasetEvaluator):
             outputs: the outputs of a compressive model given those inputs, must
                 contain the keys listed in cfg.MODEL.QUANTIZER.IN_FEATURES
         """
-        if self.processed_images > 5:
+        if self.processed_images > 250:
             return
         flat_codes = []
         for _, output in zip(inputs, outputs):
@@ -177,6 +177,7 @@ class CompressionEvaluator(DatasetEvaluator):
     def visualize_pdf(self, alpha=1):
         storage = get_event_storage()
         for feat in self.code_feats:
+            storage.put_bincount("{} pdf".format(feat), self.pdf[feat])
             plt.clf()
             fig = plt.figure()
             np_bins = self.pdf[feat].cpu().numpy()

@@ -6,7 +6,7 @@ from detectron2.config import CfgNode as CN
 from detectron2.utils.logger import setup_logger
 import detectron2.utils.comm as comm
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, DatasetEvaluator, inference_on_dataset, \
-    print_csv_format
+    print_csv_format, PascalVOCDetectionEvaluator
 from collections import OrderedDict
 from cfpn.evaluator import ReconstructionEvaluator, CompressionEvaluator
 from cfpn.datasets.kodak import download_kodak, register_kodak
@@ -24,6 +24,7 @@ def add_cfpn_config(cfg):
     _C.MODEL.RECONSTRUCT_HEADS.LOSS_WEIGHTS = [1, 1, 1, 1, 1]
     _C.TEST.TEST_IMAGES = ["img_2"]
     _C.MODEL.QUANTIZER_ON = True
+    _C.MODEL.DETECTION_ON = True
     _C.MODEL.QUANTIZER = CN()
     _C.MODEL.QUANTIZER.IN_FEATURES = ["res2", "res3", "res4", "res5"]
     # These are the weights for the loss functions
@@ -51,13 +52,15 @@ class Trainer(DefaultTrainer):
     def build_evaluator(cls, cfg: CfgNode, dataset_name, model=None):
         output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
         eval_img = cfg.TEST.TEST_IMAGES[0]
-        if dataset_name != 'kodak_test':
+        if dataset_name != 'kodak_test' and "coco" in dataset_name:
             evaluators = [COCOEvaluator(dataset_name, cfg, True, output_folder)]
         else:
             evaluators = []
+        if 'voc' in dataset_name:
+            evaluators.append(PascalVOCDetectionEvaluator(dataset_name))
         if cfg.MODEL.RECONSTRUCT_HEADS_ON and dataset_name == 'kodak_test':
             evaluators.append(ReconstructionEvaluator(dataset_name, output_folder, eval_img=eval_img))
-        if cfg.MODEL.QUANTIZER_ON:
+        if cfg.MODEL.QUANTIZER_ON and dataset_name == 'kodak_test':
             evaluators.append(CompressionEvaluator(cfg, dataset_name, model=model))
         return DatasetEvaluators(evaluators)
 

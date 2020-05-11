@@ -144,7 +144,12 @@ class CFPN(GeneralizedRCNN):
 
     def __init__(self, cfg: CfgNode):
         super(CFPN, self).__init__(cfg)
-        self.reconstruct_heads = build_reconstruct_heads(cfg, self.backbone.output_shape()).to(self.device)
+        if cfg.MODEL.RECONSTRUCT_HEADS_ON:
+            self.reconstruct_heads = build_reconstruct_heads(cfg, self.backbone.output_shape()).to(self.device)
+        else:
+            self.reconstruct_heads = None
+
+        self.detection_on = cfg.MODEL.DETECTION_ON
 
     def forward(self, batched_inputs):
         """
@@ -176,32 +181,43 @@ class CFPN(GeneralizedRCNN):
         else:
             quantization_losses = {}
 
-        if "instances" in batched_inputs[0]:
-            gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
-        elif "targets" in batched_inputs[0]:
-            log_first_n(
-                logging.WARN, "'targets' in the model inputs is now renamed to 'instances'!", n=10
-            )
-            gt_instances = [x["targets"].to(self.device) for x in batched_inputs]
-        else:
-            gt_instances = None
+        if self.detection_on:
+            if "instances" in batched_inputs[0]:
+                gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+            elif "targets" in batched_inputs[0]:
+                log_first_n(
+                    logging.WARN, "'targets' in the model inputs is now renamed to 'instances'!", n=10
+                )
+                gt_instances = [x["targets"].to(self.device) for x in batched_inputs]
+            else:
+                gt_instances = None
 
-        if self.proposal_generator:
-            proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+            if self.proposal_generator:
+                proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+            else:
+                assert "proposals" in batched_inputs[0]
+                proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+                proposal_losses = {}
+
+            _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
         else:
-            assert "proposals" in batched_inputs[0]
-            proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+            proposals = []
+            detector_losses = {}
             proposal_losses = {}
-
-        _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
-        reconstructed_images, reconstruction_losses = self.reconstruct_heads(images, features)
+        if self.reconstruct_heads:
+            reconstructed_images, reconstruction_losses = self.reconstruct_heads(images, features)
+        else:
+            reconstruction_losses = dict()
 
         if self.vis_period > 0:
             storage = get_event_storage()
             if storage.iter % self.vis_period == 0:
-                self.visualize_training(reconstructed_images, images, batched_inputs, proposals)
-
-                self.backbone.quantizer.visualize()
+                if self.reconstruct_heads:
+                    self.visualize_training(reconstructed_images, images, batched_inputs, proposals)
+                else:
+                    self.visualize_training(None, images, batched_inputs, proposals)
+                if self.backbone.quantizer:
+                    self.backbone.quantizer.visualize()
                 # except:
                 #     pass
 
@@ -229,80 +245,87 @@ class CFPN(GeneralizedRCNN):
         features = self.backbone(normed_images.tensor)
         if isinstance(features, tuple):  # if using quantization the backbone returns features, losses
             features, _ = features
-        reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
+        if self.reconstruct_heads:
+            reconstructed_images, loss_dict = self.reconstruct_heads(images, features)
+        else:
+            loss_dict = dict()
+            reconstructed_images = dict()
         # add the codes to the output dict
         codes = []
         #only works for inference with bs = 1
         for feat in self.backbone.in_features:
             reconstructed_images[feat] = features[feat].flatten()
 
-        if detected_instances is None:
-            if self.proposal_generator:
-                proposals, _ = self.proposal_generator(images, features, None)
+        if self.detection_on:
+            if detected_instances is None:
+                if self.proposal_generator:
+                    proposals, _ = self.proposal_generator(images, features, None)
+                else:
+                    assert "proposals" in batched_inputs[0]
+                    proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+
+                results, _ = self.roi_heads(images, features, proposals, None)
             else:
-                assert "proposals" in batched_inputs[0]
-                proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+                detected_instances = [x.to(self.device) for x in detected_instances]
+                results = self.roi_heads.forward_with_given_boxes(features, detected_instances)
 
-            results, _ = self.roi_heads(images, features, proposals, None)
-        else:
-            detected_instances = [x.to(self.device) for x in detected_instances]
-            results = self.roi_heads.forward_with_given_boxes(features, detected_instances)
+            if do_postprocess:
+                results = GeneralizedRCNN._postprocess(results, batched_inputs, images.image_sizes)
 
-        if do_postprocess:
-            results = GeneralizedRCNN._postprocess(results, batched_inputs, images.image_sizes)
-        else:
+            results[0].update(reconstructed_images)
             return results
-
-        results[0].update(reconstructed_images)
-        return results
+        else:
+            return [reconstructed_images]
 
     def visualize_training(self, reconstructed_images, images, batched_inputs, proposals):
         from detectron2.utils.visualizer import Visualizer
 
         # vis reconstruction
         storage = get_event_storage()
-        orig_img = images.tensor[0].detach().cpu().numpy()
-        if self.input_format == "BGR":
-            orig_img = orig_img[::-1, :, :]
-        for key in reconstructed_images:
-            recon_img = reconstructed_images[key][0].detach().cpu().numpy()
-            assert orig_img.shape[0] == 3, "Images should have 3 channels."
-            assert recon_img.shape[0] == 3, "Images should have 3 channels."
+        if reconstructed_images:
+            orig_img = images.tensor[0].detach().cpu().numpy()
             if self.input_format == "BGR":
-                recon_img = recon_img[::-1, :, :]
-            _, height, width = recon_img.shape
+                orig_img = orig_img[::-1, :, :]
+            for key in reconstructed_images:
+                recon_img = reconstructed_images[key][0].detach().cpu().numpy()
+                assert orig_img.shape[0] == 3, "Images should have 3 channels."
+                assert recon_img.shape[0] == 3, "Images should have 3 channels."
+                if self.input_format == "BGR":
+                    recon_img = recon_img[::-1, :, :]
+                _, height, width = recon_img.shape
 
 
-            t_orig_img = orig_img.transpose(1, 2, 0).astype("uint8")
-            ds_orig_img = cv2.resize(t_orig_img, dsize=(height, width), interpolation=cv2.INTER_NEAREST)
-            recon_img = recon_img.transpose(1, 2, 0).astype("uint8")
-            vis_img = np.concatenate((ds_orig_img, recon_img), axis=1)
-            vis_img = vis_img.transpose(2, 0, 1)
-            vis_name = "{} ;Left: GT image;  Right: reconstructed image".format(key)
-            storage.put_image(vis_name, vis_img) #takes in c,h,w images
+                t_orig_img = orig_img.transpose(1, 2, 0).astype("uint8")
+                ds_orig_img = cv2.resize(t_orig_img, dsize=(height, width), interpolation=cv2.INTER_NEAREST)
+                recon_img = recon_img.transpose(1, 2, 0).astype("uint8")
+                vis_img = np.concatenate((ds_orig_img, recon_img), axis=1)
+                vis_img = vis_img.transpose(2, 0, 1)
+                vis_name = "{} ;Left: GT image;  Right: reconstructed image".format(key)
+                storage.put_image(vis_name, vis_img) #takes in c,h,w images
 
         # vis detection
-        max_vis_prop = 20
-        for input, prop in zip(batched_inputs, proposals):
-            img = input["image"].cpu().numpy()
-            assert img.shape[0] == 3, "Images should have 3 channels."
-            if self.input_format == "BGR":
-                img = img[::-1, :, :]
-            img = img.transpose(1, 2, 0)
-            v_gt = Visualizer(img, None)
-            v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
-            anno_img = v_gt.get_image()
-            box_size = min(len(prop.proposal_boxes), max_vis_prop)
-            v_pred = Visualizer(img, None)
-            v_pred = v_pred.overlay_instances(
-                boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
-            )
-            prop_img = v_pred.get_image()
-            vis_img = np.concatenate((anno_img, prop_img), axis=1)
-            vis_img = vis_img.transpose(2, 0, 1)
-            vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
-            storage.put_image(vis_name, vis_img)
-            break  # only visualize one image in a batch
+        if self.detection_on:
+            max_vis_prop = 20
+            for input, prop in zip(batched_inputs, proposals):
+                img = input["image"].cpu().numpy()
+                assert img.shape[0] == 3, "Images should have 3 channels."
+                if self.input_format == "BGR":
+                    img = img[::-1, :, :]
+                img = img.transpose(1, 2, 0)
+                v_gt = Visualizer(img, None)
+                v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
+                anno_img = v_gt.get_image()
+                box_size = min(len(prop.proposal_boxes), max_vis_prop)
+                v_pred = Visualizer(img, None)
+                v_pred = v_pred.overlay_instances(
+                    boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
+                )
+                prop_img = v_pred.get_image()
+                vis_img = np.concatenate((anno_img, prop_img), axis=1)
+                vis_img = vis_img.transpose(2, 0, 1)
+                vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
+                storage.put_image(vis_name, vis_img)
+                break  # only visualize one image in a batch
 
         return
 

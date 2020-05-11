@@ -148,6 +148,11 @@ class TensorboardXWriter(EventWriter):
                 self._writer.add_histogram_raw(**params)
             storage.clear_histograms()
 
+        if len(storage._bincounts) >= 1:
+            for params in storage._bincounts:
+                self._writer.add_histogram_raw(**params)
+            storage.clear_bincounts()
+
     def close(self):
         if hasattr(self, "_writer"):  # doesn't exist when the code fails at import
             self._writer.close()
@@ -248,6 +253,7 @@ class EventStorage:
         self._current_prefix = ""
         self._vis_data = []
         self._histograms = []
+        self._bincounts = []
 
     def put_image(self, img_name, img_tensor):
         """
@@ -331,6 +337,32 @@ class EventStorage:
             global_step=self._iter,
         )
         self._histograms.append(hist_params)
+
+    def put_bincount(self, bincount_name, bincount_tensor):
+        """
+        Create a histogram from a bincount tensor. Useful if you need a histogram from a distribution sample
+            that is too large to fit in memory, but for which you can calculate the bins iteratively.
+
+        Args:
+            hist_name (str): The name of the histogram to put into tensorboard.
+            hist_tensor (torch.Tensor): A 1d tensor with counts, e.g from torch.bincount
+        """
+        ht_max = len(bincount_tensor)
+        hist_edges = torch.linspace(start=0, end=ht_max, steps=ht_max + 1, dtype=torch.float32)
+
+        # Parameter for the add_histogram_raw function of SummaryWriter
+        hist_params = dict(
+            tag=bincount_name,
+            min=0,
+            max=ht_max,
+            num=ht_max,
+            sum=float(bincount_tensor.sum()),
+            sum_squares=float(torch.sum(bincount_tensor ** 2)),
+            bucket_limits=hist_edges[1:].tolist(),
+            bucket_counts=bincount_tensor.tolist(),
+            global_step=self._iter,
+        )
+        self._bincounts.append(hist_params)
 
     def history(self, name):
         """
@@ -430,3 +462,10 @@ class EventStorage:
         This should be called after histograms are written to tensorboard.
         """
         self._histograms = []
+
+    def clear_bincounts(self):
+        """
+        Delete all the stored bincount histograms for visualization.
+        This should be called after bincount histograms are written to tensorboard.
+        """
+        self._bincounts = []
