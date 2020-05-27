@@ -4,7 +4,7 @@ MODEL:
   BACKBONE:
     NAME: "QFPN"
     FREEZE_AT: 0
-  DETECTION_ON: False
+  DETECTION_ON: True
   RPN:
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
     PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
@@ -27,7 +27,7 @@ MODEL:
     POOLER_RESOLUTION: 14
   QUANTIZER_ON: True
   QUANTIZER:
-    FEAT_WEIGHTS: [10, 10, 10, 10]
+    FEAT_WEIGHTS: [0, 0, 0, 0]
     NAME: "GSM"
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
   RESNETS:
@@ -45,7 +45,7 @@ MODEL:
     IN_CHANNELS: 512 # must match FPN out_channels
 DATASETS:
   TRAIN: ("voc_2012_train",)
-  TEST: ("kodak_test",)
+  TEST: ("voc_2012_val", "kodak_test")
 DATALOADER:
   NUM_WORKERS: 10
 SOLVER:

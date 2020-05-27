@@ -1,0 +1,3 @@
+DATASETS:
+  TRAIN: ("kodak_test",)
+  TEST: ("kodak_test",)

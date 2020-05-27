@@ -1,7 +1,9 @@
+# something here seriously fucks up QFPNS
+
 import logging
 import os
 from detectron2.config import CfgNode, get_cfg
-from detectron2.engine import default_setup, DefaultTrainer
+from detectron2.engine import default_setup, DefaultTrainer, default_argument_parser
 from detectron2.config import CfgNode as CN
 from detectron2.utils.logger import setup_logger
 import detectron2.utils.comm as comm
@@ -23,13 +25,13 @@ def add_cfpn_config(cfg):
     #how much to weight the reconstruction at each level by
     _C.MODEL.RECONSTRUCT_HEADS.LOSS_WEIGHTS = [1, 1, 1, 1, 1]
     _C.TEST.TEST_IMAGES = ["img_2"]
-    _C.MODEL.QUANTIZER_ON = True
+    _C.MODEL.QUANTIZER_ON = False
     _C.MODEL.DETECTION_ON = True
     _C.MODEL.QUANTIZER = CN()
     _C.MODEL.QUANTIZER.IN_FEATURES = ["res2", "res3", "res4", "res5"]
     # These are the weights for the loss functions
     # Must be the same length as in_features and correspond one to one
-    _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [50, 50, 50, 50]
+    _C.MODEL.QUANTIZER.FEAT_WEIGHTS = [0, 0, 0, 0]
     _C.MODEL.QUANTIZER.NAME = 'GSM'
 
     _C.MODEL.QUANTIZER_ON = False
@@ -123,8 +125,8 @@ class Trainer(DefaultTrainer):
 def setup(args):
     cfg = get_cfg()
     add_cfpn_config(cfg)
-    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/Base-Detection-Quantized-CFPN.yaml')
-    # cfg.merge_from_list(args.opts)
+    cfg.merge_from_file('/home/hamish/detectron2/projects/CFPN/configs/QFPN_detection_only.yaml')
+    cfg.merge_from_list(args.opts)
     download_kodak()
     register_kodak()
     cfg.freeze()
@@ -134,7 +136,9 @@ def setup(args):
 
 
 if __name__ == "__main__":
-    cfg = setup([])
+    args = default_argument_parser().parse_args()
+    print("Command Line Args:", args)
+    cfg = setup(args)
     trainer = Trainer(cfg)
     trainer.train()
 

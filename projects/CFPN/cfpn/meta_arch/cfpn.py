@@ -193,13 +193,13 @@ class CFPN(GeneralizedRCNN):
                 gt_instances = None
 
             if self.proposal_generator:
-                proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+                proposals, proposal_losses = self.proposal_generator(normed_images, features, gt_instances)
             else:
                 assert "proposals" in batched_inputs[0]
                 proposals = [x["proposals"].to(self.device) for x in batched_inputs]
                 proposal_losses = {}
 
-            _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
+            _, detector_losses = self.roi_heads(normed_images, features, proposals, gt_instances)
         else:
             proposals = []
             detector_losses = {}
@@ -216,8 +216,8 @@ class CFPN(GeneralizedRCNN):
                     self.visualize_training(reconstructed_images, images, batched_inputs, proposals)
                 else:
                     self.visualize_training(None, images, batched_inputs, proposals)
-                if self.backbone.quantizer:
-                    self.backbone.quantizer.visualize()
+                # if self.backbone.quantizer:
+                #     self.backbone.quantizer.visualize()
                 # except:
                 #     pass
 
@@ -259,18 +259,18 @@ class CFPN(GeneralizedRCNN):
         if self.detection_on:
             if detected_instances is None:
                 if self.proposal_generator:
-                    proposals, _ = self.proposal_generator(images, features, None)
+                    proposals, _ = self.proposal_generator(normed_images, features, None)
                 else:
                     assert "proposals" in batched_inputs[0]
                     proposals = [x["proposals"].to(self.device) for x in batched_inputs]
 
-                results, _ = self.roi_heads(images, features, proposals, None)
+                results, _ = self.roi_heads(normed_images, features, proposals, None)
             else:
                 detected_instances = [x.to(self.device) for x in detected_instances]
                 results = self.roi_heads.forward_with_given_boxes(features, detected_instances)
 
             if do_postprocess:
-                results = GeneralizedRCNN._postprocess(results, batched_inputs, images.image_sizes)
+                results = GeneralizedRCNN._postprocess(results, batched_inputs, normed_images.image_sizes)
 
             results[0].update(reconstructed_images)
             return results
